@@ -28,15 +28,31 @@ class MainTabController extends StatefulWidget {
 
 class _MainTabControllerState extends State<MainTabController> {
   int _selectedIndex = 0;
-  final String userName = "Admin";
+  String userName = "";
 
-  static const List<Widget> _pages = <Widget>[
-    HomePage(userName: "Admin"),
-    StudyPage(userName: "Admin"),
-    MyWordsPage(userName: "Admin"),
-    QuizPage(userName: "Admin"),
-    OverflowMenu(userName: "Admin"),
-  ];
+  void _onUserLogin(String newUserName) {
+    setState(() {
+      userName = newUserName;
+    });
+  }
+
+  void _onUserLogout() {
+    setState(() {
+      userName = "";
+    });
+  }
+
+  List<Widget> get _pages => [
+        HomePage(userName: userName),
+        StudyPage(userName: userName),
+        MyWordsPage(userName: userName),
+        QuizPage(userName: userName),
+        OverflowMenu(
+          userName: userName,
+          onLogin: _onUserLogin,
+          onLogout: _onUserLogout,
+        ),
+      ];
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 

@@ -13,6 +13,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  int _playSession = 0;
   final FlutterTts tts = FlutterTts();
   List<String> tags = [];
   String? selectedTag;
@@ -42,12 +43,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> fetchUserData() async {
-    final profile = await SpellApiService.getUserProfile("Eric");
+    final profile = await SpellApiService.getUserProfile(widget.userName);
     final userTags = await SpellApiService.getUserTags(widget.userName);
+    String? latestTag;
+    try {
+      latestTag = await SpellApiService.getLatestLoginTag(widget.userName);
+    } catch (_) {
+      latestTag = null;
+    }
+    String? preselectTag = (latestTag != null && userTags.contains(latestTag)) ? latestTag : null;
     setState(() {
       points = profile['total_points'] ?? 0;
       tags = List<String>.from(userTags);
+      selectedTag = preselectTag;
     });
+    if (preselectTag != null) {
+      fetchWords(preselectTag);
+    }
   }
 
   Future<void> fetchWords(String tag) async {
@@ -59,15 +71,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _playWord() async {
-    if (words.isNotEmpty) {
-      final word = words[currentIndex]['text'];
-      // Web: use SpeechSynthesis API
+    if (words.isEmpty) return;
+    _playSession++;
+    final int session = _playSession;
+    final word = words[currentIndex]['text'];
+
+    for (int i = 0; i < 3; i++) {
+      // Cancel previous speech before starting
       if (identical(0, 0.0)) { // kIsWeb
         try {
           final synth = js_util.getProperty(js_util.globalThis, 'speechSynthesis');
+          js_util.callMethod(synth, 'cancel', []);
           final voices = js_util.callMethod(synth, 'getVoices', []);
           final voicesList = List.from(voices);
-          // Detect if the word contains Chinese characters
           final isChinese = RegExp(r'[\u4e00-\u9fff]').hasMatch(word);
           var selectedVoice;
           if (isChinese) {
@@ -95,8 +111,14 @@ class _HomePageState extends State<HomePage> {
           print("Web TTS Error: $e");
         }
       } else {
+        await tts.stop();
         final result = await tts.speak(word);
         print("TTS Speak Result: $result");
+      }
+      // Wait for 5 seconds before next repeat, but break if session is outdated
+      for (int j = 0; j < 50; j++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (_playSession != session) return;
       }
     }
   }
@@ -130,7 +152,7 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text("👋 Hello, \${widget.userName}! You have \$points points.",
+            Text("👋 Hello, ${widget.userName}! You have $points points.",
               style: const TextStyle(fontSize: 18),
             ),
             const SizedBox(height: 16),
@@ -145,6 +167,7 @@ class _HomePageState extends State<HomePage> {
                   setState(() {
                     selectedTag = tag;
                   });
+                  SpellApiService.logLoginHistory(widget.userName, tag: tag);
                   fetchWords(tag);
                 }
               },
