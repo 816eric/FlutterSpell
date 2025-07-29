@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class SpellApiService {
+
+  final String baseUrl = "http://192.168.18.88:8000/";
+
   // Static method to get user profile
   static Future<Map<String, dynamic>> getUserProfile(String userName) async {
     final service = SpellApiService();
@@ -30,7 +33,7 @@ class SpellApiService {
     final service = SpellApiService();
     return await service.fetchWords(userName, tags);
   }
-  final String baseUrl = "http://192.168.18.12:8000/";
+ 
 
   Future<List<Map<String, dynamic>>> fetchWords(String userName, List<String> tags) async {
     final service = SpellApiService();
@@ -44,8 +47,9 @@ class SpellApiService {
   }
 
   Future<void> logStudy(String userName, int wordId) async {
+    final service = SpellApiService();
     final response = await http.post(
-      Uri.parse('$baseUrl/users/$userName/study/'),
+      Uri.parse('${service.baseUrl}users/$userName/study/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'word_id': wordId}),
     );
@@ -55,7 +59,8 @@ class SpellApiService {
   }
 
   Future<Map<String, dynamic>> getPoints(String userName) async {
-    final response = await http.get(Uri.parse('$baseUrl/users/$userName/points/'));
+    final service = SpellApiService();
+    final response = await http.get(Uri.parse('${service.baseUrl}users/$userName/points/'));
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
