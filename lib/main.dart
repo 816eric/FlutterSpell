@@ -5,6 +5,9 @@ import 'screens/my_words_page.dart';
 import 'screens/quiz_page.dart';
 import 'screens/overflow_menu.dart';
 import 'widgets/top_ad_bar.dart';
+import 'services/spell_api_service.dart';
+import 'screens/settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(SpellApp());
@@ -17,6 +20,25 @@ class SpellApp extends StatelessWidget {
       title: 'Spell Practice App',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: MainTabController(),
+      onGenerateRoute: (settings) {
+        if (settings.name == '/settings') {
+          // Find the nearest MainTabControllerState to get the onLogin callback
+          return MaterialPageRoute(
+            builder: (context) {
+              final mainTabState = context.findAncestorStateOfType<_MainTabControllerState>();
+              return SettingsPage(
+                onLogin: (userName) {
+                  if (mainTabState != null) {
+                    mainTabState._onUserLogin(userName);
+                  }
+                  Navigator.of(context).pop();
+                },
+              );
+            },
+          );
+        }
+        return null;
+      },
     );
   }
 }
@@ -27,18 +49,73 @@ class MainTabController extends StatefulWidget {
 }
 
 class _MainTabControllerState extends State<MainTabController> {
+
   int _selectedIndex = 0;
   String userName = "";
 
-  void _onUserLogin(String newUserName) {
-    setState(() {
-      userName = newUserName;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadUserFromPrefs();
+  }
+
+  Future<void> _loadUserFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUser = prefs.getString('loggedInUser');
+    if (savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest') {
+      try {
+        await SpellApiService.getUserProfile(savedUser);
+        setState(() {
+          userName = savedUser;
+        });
+      } catch (_) {
+        setState(() {
+          userName = "Guest";
+        });
+      }
+    } else {
+      setState(() {
+        userName = "Guest";
+      });
+    }
+  }
+
+  Future<void> _ensureValidUserName() async {
+    String name = userName;
+    if (name.isEmpty) {
+      setState(() {
+        userName = "Guest";
+      });
+      return;
+    }
+    try {
+      // Try to fetch profile, fallback to Guest if fails
+      await SpellApiService.getUserProfile(name);
+    } catch (_) {
+      setState(() {
+        userName = "Guest";
+      });
+    }
+  }
+
+  void _onUserLogin(String newUserName) async {
+    String name = newUserName.trim();
+    if (name.isEmpty) name = "Guest";
+    try {
+      await SpellApiService.getUserProfile(name);
+      setState(() {
+        userName = name;
+      });
+    } catch (_) {
+      setState(() {
+        userName = "Guest";
+      });
+    }
   }
 
   void _onUserLogout() {
     setState(() {
-      userName = "";
+      userName = "Guest";
     });
   }
 
@@ -54,7 +131,31 @@ class _MainTabControllerState extends State<MainTabController> {
         ),
       ];
 
-  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
+  void _onItemTapped(int index) async {
+    if (index == 4) { // 'More' tab
+      // Always check latest user from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final savedUser = prefs.getString('loggedInUser');
+      final isLoggedIn = savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest';
+      if (isLoggedIn) {
+        if (savedUser != userName) {
+          _onUserLogin(savedUser!);
+        }
+        setState(() => _selectedIndex = index);
+      } else {
+        await Navigator.of(context).pushNamed('/settings');
+        // After returning from settings, check again
+        final prefs2 = await SharedPreferences.getInstance();
+        final savedUser2 = prefs2.getString('loggedInUser');
+        if (savedUser2 != null && savedUser2.isNotEmpty && savedUser2 != userName && savedUser2 != 'Guest') {
+          _onUserLogin(savedUser2);
+          setState(() => _selectedIndex = 0); // Go to Home after login
+        }
+      }
+    } else {
+      setState(() => _selectedIndex = index);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

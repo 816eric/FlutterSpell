@@ -77,7 +77,9 @@ class _SettingsPageState extends State<SettingsPage> {
           _gradeController.text = profile["grade"] ?? "";
           message = "Welcome back, $name!";
         });
+        // Call onLogin after setState to update parent immediately
         widget.onLogin(name);
+        // Do NOT pop the page after login
       }
     } catch (e) {
       setState(() {
@@ -114,6 +116,9 @@ class _SettingsPageState extends State<SettingsPage> {
           loggedInUser = name;
           message = "Profile created successfully!";
         });
+        // Call onLogin after setState to update parent immediately
+        widget.onLogin(name);
+        // Do NOT pop the page after registration
       }
     } catch (e) {
       setState(() => message = "Failed to update profile.");

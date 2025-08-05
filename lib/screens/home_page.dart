@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'dart:js_util' as js_util;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../services/tts_stub.dart'
+    if (dart.library.js_util) '../services/tts_web.dart';
 import '../services/spell_api_service.dart';
 
 class HomePage extends StatefulWidget {
@@ -13,6 +15,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  bool _showWord = false;
+  String? _effectiveUserName;
   int _playSession = 0;
   final FlutterTts tts = FlutterTts();
   List<String> tags = [];
@@ -26,6 +30,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     initTTS();
+    _effectiveUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
     fetchUserData();
   }
 
@@ -43,27 +48,52 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> fetchUserData() async {
-    final profile = await SpellApiService.getUserProfile(widget.userName);
-    final userTags = await SpellApiService.getUserTags(widget.userName);
-    String? latestTag;
+    String user = _effectiveUserName ?? 'Guest';
     try {
-      latestTag = await SpellApiService.getLatestLoginTag(widget.userName);
-    } catch (_) {
-      latestTag = null;
-    }
-    String? preselectTag = (latestTag != null && userTags.contains(latestTag)) ? latestTag : null;
-    setState(() {
-      points = profile['total_points'] ?? 0;
-      tags = List<String>.from(userTags);
-      selectedTag = preselectTag;
-    });
-    if (preselectTag != null) {
-      fetchWords(preselectTag);
+      // Only fetch profile if user is not empty and not 'Guest'
+      Map<String, dynamic> profile = {};
+      // If user is empty or Guest, fetch tags as Admin
+      final isGuest = user.isEmpty || user == 'Guest';
+      if (!isGuest) {
+        profile = await SpellApiService.getUserProfile(user);
+      }
+      
+      final userTags = isGuest
+          ? await SpellApiService.getAdminTags()
+          : await SpellApiService.getUserTags(user);
+      print(userTags);
+      String? latestTag;
+      try {
+        latestTag = await SpellApiService.getLatestLoginTag(user);
+      } catch (_) {
+        latestTag = null;
+      }
+      // Always use tag names for Dropdown
+      final tagNames = userTags.map((e) => e['tag'] as String).toList();
+      String? preselectTag = (latestTag != null && tagNames.contains(latestTag)) ? latestTag : (tagNames.isNotEmpty ? tagNames[0] : null);
+      setState(() {
+        _effectiveUserName = user;
+        points = profile['total_points'] ?? 0;
+        tags = tagNames;
+        selectedTag = preselectTag;
+      });
+      if (preselectTag != null) {
+        fetchWords(preselectTag);
+      }
+    } catch (e) {
+      setState(() {
+        _effectiveUserName = 'Guest';
+        points = 0;
+        tags = [];
+        selectedTag = null;
+      });
     }
   }
 
   Future<void> fetchWords(String tag) async {
-    final fetchedWords = await SpellApiService.getWords(widget.userName, [tag]);
+    // If user is Guest, fetch words as Admin
+    final user = (_effectiveUserName == null || _effectiveUserName == 'Guest') ? 'admin' : _effectiveUserName!;
+    final fetchedWords = await SpellApiService.getWords(user, tag);
     setState(() {
       words = fetchedWords;
       currentIndex = 0;
@@ -77,39 +107,9 @@ class _HomePageState extends State<HomePage> {
     final word = words[currentIndex]['text'];
 
     for (int i = 0; i < 3; i++) {
-      // Cancel previous speech before starting
-      if (identical(0, 0.0)) { // kIsWeb
-        try {
-          final synth = js_util.getProperty(js_util.globalThis, 'speechSynthesis');
-          js_util.callMethod(synth, 'cancel', []);
-          final voices = js_util.callMethod(synth, 'getVoices', []);
-          final voicesList = List.from(voices);
-          final isChinese = RegExp(r'[\u4e00-\u9fff]').hasMatch(word);
-          var selectedVoice;
-          if (isChinese) {
-            selectedVoice = voicesList.firstWhere(
-              (v) => js_util.getProperty(v, 'lang').toString().startsWith('zh'),
-              orElse: () => voicesList.isNotEmpty ? voicesList[0] : null,
-            );
-          } else {
-            selectedVoice = voicesList.firstWhere(
-              (v) => js_util.getProperty(v, 'lang').toString().startsWith('en'),
-              orElse: () => voicesList.isNotEmpty ? voicesList[0] : null,
-            );
-          }
-          final utter = js_util.callConstructor(
-            js_util.getProperty(js_util.globalThis, 'SpeechSynthesisUtterance'),
-            [word],
-          );
-          if (selectedVoice != null) {
-            js_util.setProperty(utter, 'voice', selectedVoice);
-            js_util.setProperty(utter, 'lang', js_util.getProperty(selectedVoice, 'lang'));
-          }
-          js_util.callMethod(synth, 'speak', [utter]);
-          print("Web SpeechSynthesis called for: $word");
-        } catch (e) {
-          print("Web TTS Error: $e");
-        }
+      if (kIsWeb) {
+        await playWordWeb(word);
+        print("Web SpeechSynthesis called for: $word");
       } else {
         await tts.stop();
         final result = await tts.speak(word);
@@ -127,6 +127,7 @@ class _HomePageState extends State<HomePage> {
     if (words.isEmpty) return;
     setState(() {
       currentIndex = (currentIndex - 1 + words.length) % words.length;
+      _showWord = false;
     });
     await _playWord();
   }
@@ -135,14 +136,14 @@ class _HomePageState extends State<HomePage> {
     if (words.isEmpty) return;
     setState(() {
       currentIndex = (currentIndex + 1) % words.length;
+      _showWord = false;
     });
     await _playWord();
   }
 
   @override
   Widget build(BuildContext context) {
-    final word = words.isNotEmpty ? words[currentIndex]['text'] : 'Select a tag';
-
+    final word = words.isNotEmpty ? words[currentIndex]['text'] : '';
     return Scaffold(
       appBar: AppBar(
         title: const Text('Spell Practice'),
@@ -150,44 +151,99 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text("👋 Hello, ${widget.userName}! You have $points points.",
-              style: const TextStyle(fontSize: 18),
-            ),
-            const SizedBox(height: 16),
-            DropdownButton<String>(
-              value: selectedTag,
-              hint: const Text("Select Tag"),
-              items: tags.map((tag) {
-                return DropdownMenuItem(value: tag, child: Text(tag));
-              }).toList(),
-              onChanged: (tag) {
-                if (tag != null) {
-                  setState(() {
-                    selectedTag = tag;
-                  });
-                  SpellApiService.logLoginHistory(widget.userName, tag: tag);
-                  fetchWords(tag);
-                }
-              },
-            ),
-            const SizedBox(height: 32),
-            Text(
-              word,
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const Spacer(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                ElevatedButton(onPressed: _goPrevious, child: const Text("Previous")),
-                ElevatedButton(onPressed: _playWord, child: const Text("Play")),
-                ElevatedButton(onPressed: _goNext, child: const Text("Next")),
+                Text("👋 Hello, ${_effectiveUserName ?? 'Guest'}! You have $points points.",
+                  style: const TextStyle(fontSize: 18),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                DropdownButton<String>(
+                  value: selectedTag,
+                  hint: const Text("Select Tag"),
+                  items: tags.map((tag) {
+                    return DropdownMenuItem(value: tag, child: Text(tag));
+                  }).toList(),
+                  onChanged: (tag) {
+                    if (tag != null) {
+                      setState(() {
+                        selectedTag = tag;
+                      });
+                      SpellApiService.logLoginHistory(widget.userName, tag: tag);
+                      fetchWords(tag);
+                    }
+                  },
+                ),
+                const SizedBox(height: 32),
+                if (!_showWord)
+                  SizedBox(
+                    width: 200, 
+                    height: 40,
+                    child: ElevatedButton(
+                      onPressed: words.isNotEmpty ? () => setState(() => _showWord = true) : null,
+                      style: ElevatedButton.styleFrom(
+                        textStyle: const TextStyle(fontSize: 13), 
+                      ),
+                      child: const Text("Show me the word"),
+                    ),
+                  )
+                else
+                  Text(
+                    word,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                const SizedBox(height: 32),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 100, height: 36, // half size
+                      child: ElevatedButton(
+                        onPressed: _goPrevious,
+                        style: ElevatedButton.styleFrom(
+                          textStyle: const TextStyle(fontSize: 20), 
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        ),
+                        child: const Text("Previous"),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: 100, height: 36,
+                      child: ElevatedButton(
+                        onPressed: _playWord,
+                        style: ElevatedButton.styleFrom(
+                          textStyle: const TextStyle(fontSize: 20),
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        ),
+                        child: const Text("Play"),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: 100, height: 36,
+                      child: ElevatedButton(
+                        onPressed: _goNext,
+                        style: ElevatedButton.styleFrom(
+                          textStyle: const TextStyle(fontSize: 20),
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        ),
+                        child: const Text("Next"),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
