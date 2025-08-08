@@ -36,6 +36,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> initTTS() async {
     await tts.setLanguage("en-US");
+    await tts.setSpeechRate(0.6); // Set speech rate slower (default is 0.5-1.0)
     await tts.awaitSpeakCompletion(true);
     List<dynamic> voices = await tts.getVoices;
     for (var voice in voices) {

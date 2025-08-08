@@ -79,9 +79,9 @@ class _StudyPageState extends State<StudyPage> {
               value: selectedTag,
               hint: const Text("Select tag"),
               items: tags
-                  .where((tag) => tag != null && tag["name"] != null && tag["name"] is String)
+                  .where((tag) => tag != null && (tag["tag"] != null && tag["tag"] is String))
                   .map<DropdownMenuItem<String>>((tag) {
-                final String tagName = tag["name"] as String;
+                final String tagName = tag["tag"] as String;
                 return DropdownMenuItem<String>(
                   value: tagName,
                   child: Text(tagName),

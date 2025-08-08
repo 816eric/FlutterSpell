@@ -120,7 +120,7 @@ class _MainTabControllerState extends State<MainTabController> {
   }
 
   List<Widget> get _pages => [
-        HomePage(userName: userName),
+        HomePage(key: ValueKey(userName), userName: userName),
         StudyPage(userName: userName),
         MyWordsPage(userName: userName),
         QuizPage(userName: userName),
@@ -139,20 +139,32 @@ class _MainTabControllerState extends State<MainTabController> {
       final isLoggedIn = savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest';
       if (isLoggedIn) {
         if (savedUser != userName) {
-          _onUserLogin(savedUser!);
+          _onUserLogin(savedUser);
         }
         setState(() => _selectedIndex = index);
       } else {
         await Navigator.of(context).pushNamed('/settings');
-        // After returning from settings, check again
+        // After returning from settings, always reload user from SharedPreferences
         final prefs2 = await SharedPreferences.getInstance();
         final savedUser2 = prefs2.getString('loggedInUser');
-        if (savedUser2 != null && savedUser2.isNotEmpty && savedUser2 != userName && savedUser2 != 'Guest') {
+        if (savedUser2 != null && savedUser2.isNotEmpty && savedUser2 != 'Guest') {
           _onUserLogin(savedUser2);
-          setState(() => _selectedIndex = 0); // Go to Home after login
+        } else {
+          setState(() { userName = "Guest"; });
         }
+        setState(() => _selectedIndex = 0); // Always go to Home after settings
       }
     } else {
+      // If switching to Home tab, always reload user from SharedPreferences
+      if (index == 0) {
+        final prefs = await SharedPreferences.getInstance();
+        final savedUser = prefs.getString('loggedInUser');
+        if (savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest') {
+          _onUserLogin(savedUser);
+        } else {
+          setState(() { userName = "Guest"; });
+        }
+      }
       setState(() => _selectedIndex = index);
     }
   }
