@@ -46,7 +46,7 @@ class SpellApiService {
 
   // Get all tags (admin/global)
   static Future<List<Map<String, dynamic>>> getAllTags() async {
-    final response = await http.get(Uri.parse('${SpellApiService.baseUrl}tags/admin'));
+    final response = await http.get(Uri.parse('${SpellApiService.baseUrl}tags/all'));
     if (response.statusCode == 200) {
       final List<dynamic> tags = jsonDecode(response.body);
       return tags.map((e) => Map<String, dynamic>.from(e)).toList();

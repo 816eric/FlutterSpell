@@ -22,6 +22,8 @@ class TagAssignmentPage extends StatefulWidget {
 
 
 class _TagAssignmentPageState extends State<TagAssignmentPage> {
+  final ScrollController _availableScrollController = ScrollController();
+  final ScrollController _assignedScrollController = ScrollController();
   bool _shouldShowLogin = false;
   List<dynamic> allTags = [];
   List<dynamic> userTags = [];
@@ -116,13 +118,13 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
   }
 
   Widget _buildTagTreeWidget(List<_TagTreeNode> nodes, Set<int> selectedIds, Set<int> expandedGroups, bool isAssigned, [String parentPath = '', int level = 0]) {
-    return ListView(
-      shrinkWrap: true,
+    // For mobile, render as Column to avoid nested scrolls
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: nodes.map((node) {
         final path = parentPath.isEmpty ? node.label : '$parentPath::${node.label}';
         final groupId = path.hashCode;
         if (node.children.isNotEmpty) {
-          // Expand all by default
           if (!expandedGroups.contains(groupId)) expandedGroups.add(groupId);
           return Container(
             margin: EdgeInsets.only(left: 16.0 * level),
@@ -213,44 +215,115 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
       appBar: AppBar(title: const Text("Tag Assignment")),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Left: Available tags
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text("Available Tags", style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: _buildTagTree(availableTags, selectedAvailableTagIds, expandedAvailableGroups, false),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 600;
+            final divider = isNarrow
+                ? const Divider(height: 32, thickness: 1)
+                : const VerticalDivider(width: 32, thickness: 1);
+            if (isNarrow) {
+              // Column layout with scroll for small screens
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Available tags
+                    const Text("Available Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _buildTagTree(availableTags, selectedAvailableTagIds, expandedAvailableGroups, false),
+                    ElevatedButton(
+                      onPressed: assignTags,
+                      child: const Text("Assign →"),
+                    ),
+                    divider,
+                    // Assigned tags
+                    const Text("Assigned Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _buildTagTree(userTags, selectedAssignedTagIds, expandedAssignedGroups, true),
+                    ElevatedButton(
+                      onPressed: unassignTags,
+                      child: const Text("← Unassign"),
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              // Row layout for wide screens, horizontally scrollable
+              // Use constraints.maxHeight if bounded, else fallback to MediaQuery
+              double maxHeight = constraints.hasBoundedHeight && constraints.maxHeight < double.infinity
+                  ? constraints.maxHeight
+                  : MediaQuery.of(context).size.height - 32;
+              if (maxHeight < 200) maxHeight = 200;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Available tags
+                      SizedBox(
+                        width: constraints.maxWidth / 2 > 350 ? constraints.maxWidth / 2 : 350,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 300, maxWidth: 600),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text("Available Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: Scrollbar(
+                                  controller: _availableScrollController,
+                                  thumbVisibility: true,
+                                  child: SingleChildScrollView(
+                                    controller: _availableScrollController,
+                                    child: _buildTagTree(availableTags, selectedAvailableTagIds, expandedAvailableGroups, false),
+                                  ),
+                                ),
+                              ),
+                              ElevatedButton(
+                                onPressed: assignTags,
+                                child: const Text("Assign →"),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      divider,
+                      // Assigned tags
+                      SizedBox(
+                        width: constraints.maxWidth / 2 > 350 ? constraints.maxWidth / 2 : 350,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 300, maxWidth: 600),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text("Assigned Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: Scrollbar(
+                                  controller: _assignedScrollController,
+                                  thumbVisibility: true,
+                                  child: SingleChildScrollView(
+                                    controller: _assignedScrollController,
+                                    child: _buildTagTree(userTags, selectedAssignedTagIds, expandedAssignedGroups, true),
+                                  ),
+                                ),
+                              ),
+                              ElevatedButton(
+                                onPressed: unassignTags,
+                                child: const Text("← Unassign"),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  ElevatedButton(
-                    onPressed: assignTags,
-                    child: const Text("Assign →"),
-                  ),
-                ],
-              ),
-            ),
-            const VerticalDivider(width: 32),
-            // Right: Assigned tags
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text("Assigned Tags", style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: _buildTagTree(userTags, selectedAssignedTagIds, expandedAssignedGroups, true),
-                  ),
-                  ElevatedButton(
-                    onPressed: unassignTags,
-                    child: const Text("← Unassign"),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                ),
+              );
+            }
+          },
         ),
       ),
     );
