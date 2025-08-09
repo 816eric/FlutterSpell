@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../services/spell_api_service.dart';
 
@@ -25,6 +24,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
   final ScrollController _availableScrollController = ScrollController();
   final ScrollController _assignedScrollController = ScrollController();
   bool _shouldShowLogin = false;
+  String? _effectiveUserName;
   List<dynamic> allTags = [];
   List<dynamic> userTags = [];
   List<dynamic> availableTags = [];
@@ -37,24 +37,68 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
   @override
   void initState() {
     super.initState();
-    final user = widget.userName;
+    _effectiveUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
+    // Do not check login here, do it in didChangeDependencies
+  }
+
+  @override
+  void didUpdateWidget(covariant TagAssignmentPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.userName != oldWidget.userName) {
+      _effectiveUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
+      // Re-run login check and fetch tags
+      if (_effectiveUserName == 'Guest') {
+        if (!_shouldShowLogin) {
+          _shouldShowLogin = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please Login first')),
+            );
+            Navigator.of(context).pushReplacementNamed('/settings');
+          });
+        }
+      } else {
+        if (_shouldShowLogin) {
+          setState(() {
+            _shouldShowLogin = false;
+          });
+        }
+        fetchTags();
+      }
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Always update _effectiveUserName from widget.userName
+    _effectiveUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
+    final user = _effectiveUserName ?? 'Guest';
     if (user.isEmpty || user == 'Guest') {
-      _shouldShowLogin = true;
-      // Delay navigation to allow build to complete
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please Login first')),
-        );
-        Navigator.of(context).pushReplacementNamed('/settings');
-      });
+      if (!_shouldShowLogin) {
+        _shouldShowLogin = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please Login first')),
+          );
+          Navigator.of(context).pushReplacementNamed('/settings');
+        });
+      }
     } else {
-      fetchTags();
+      if (_shouldShowLogin) {
+        setState(() {
+          _shouldShowLogin = false;
+        });
+        fetchTags();
+      } else if (allTags.isEmpty && userTags.isEmpty) {
+        fetchTags();
+      }
     }
   }
 
   Future<void> fetchTags() async {
     final all = await SpellApiService.getAllTags();
-    final user = await SpellApiService.getUserTags(widget.userName);
+    final user = await SpellApiService.getUserTags(_effectiveUserName ?? 'Guest');
     setState(() {
       allTags = all;
       userTags = user;
@@ -72,18 +116,18 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
 
   Future<void> assignTags() async {
     if (selectedAvailableTagIds.isEmpty) return;
-    await SpellApiService.assignTagsToUser(widget.userName, selectedAvailableTagIds.toList());
+    await SpellApiService.assignTagsToUser(_effectiveUserName ?? 'Guest', selectedAvailableTagIds.toList());
     await fetchTags();
   }
 
   Future<void> unassignTags() async {
     if (selectedAssignedTagIds.isEmpty) return;
-    await SpellApiService.unassignTagsFromUser(widget.userName, selectedAssignedTagIds.toList());
+    await SpellApiService.unassignTagsFromUser(_effectiveUserName ?? 'Guest', selectedAssignedTagIds.toList());
     await fetchTags();
   }
 
   Future<void> deleteTag(int tagId) async {
-    await SpellApiService.deleteUserTag(widget.userName, tagId);
+    await SpellApiService.deleteUserTag(_effectiveUserName ?? 'Guest', tagId);
     await fetchTags();
   }
 

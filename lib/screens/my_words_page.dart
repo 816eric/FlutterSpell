@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/spell_api_service.dart';
 import 'tag_manager.dart';
 import 'tag_assignment.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyWordsPage extends StatefulWidget {
   final String userName;
@@ -32,15 +33,19 @@ class _MyWordsPageState extends State<MyWordsPage> {
           return ListTile(
             title: Text(_pages[index]),
             trailing: const Icon(Icons.arrow_forward_ios),
-            onTap: () {
+            onTap: () async {
               setState(() => _selectedPage = index);
+              // Always get the latest userName from SharedPreferences before navigating
+              final prefs = await SharedPreferences.getInstance();
+              final savedUser = prefs.getString('loggedInUser');
+              final latestUserName = (savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest') ? savedUser : 'Guest';
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) {
-                    if (index == 0) return AddMyWordsPage(userName: widget.userName);
+                    if (index == 0) return AddMyWordsPage(userName: latestUserName);
                     // Only Tag Assignment remains as second page
-                    return TagAssignmentPage(userName: widget.userName);
+                    return TagAssignmentPage(userName: latestUserName);
                   },
                 ),
               );

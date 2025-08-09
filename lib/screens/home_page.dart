@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/tts_stub.dart'
     if (dart.library.js_util) '../services/tts_web.dart';
@@ -24,7 +25,8 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> words = [];
   int currentIndex = 0;
   int points = 0;
-  String? currentVoice;
+  Map<String, String>? currentVoice;
+  List<Map<String, String>> availableVoices = [];
 
   @override
   void initState() {
@@ -36,14 +38,29 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> initTTS() async {
     await tts.setLanguage("en-US");
-    await tts.setSpeechRate(0.6); // Set speech rate slower (default is 0.5-1.0)
+    await tts.setSpeechRate(1); // Set speech rate slower (default is 0.5-1.0)
     await tts.awaitSpeakCompletion(true);
     List<dynamic> voices = await tts.getVoices;
-    for (var voice in voices) {
-      if (voice is Map && voice.containsKey("name") && voice["name"].toString().contains("Zira")) {
-        currentVoice = voice["name"];
-        await tts.setVoice(Map<String, String>.from(voice));
-        break;
+    availableVoices = voices.whereType<Map>().map((v) => Map<String, String>.from(v)).toList();
+    // Load selected voice from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final savedVoiceName = prefs.getString('selectedVoice');
+    if (savedVoiceName != null) {
+      final match = availableVoices.firstWhere(
+        (v) => v['name'] == savedVoiceName,
+        orElse: () => availableVoices.isNotEmpty ? availableVoices[0] : {},
+      );
+      if (match.isNotEmpty) {
+        currentVoice = match;
+        await tts.setVoice(currentVoice!);
+      }
+    } else {
+      for (var voice in availableVoices) {
+        if (voice.containsKey("name") && voice["name"]!.contains("Zira")) {
+          currentVoice = voice;
+          await tts.setVoice(currentVoice!);
+          break;
+        }
       }
     }
   }
@@ -103,19 +120,111 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _playWord() async {
     if (words.isEmpty) return;
+    await tts.stop();
+    await Future.delayed(const Duration(milliseconds: 150));
     _playSession++;
     final int session = _playSession;
     final word = words[currentIndex]['text'];
 
+    // Helper to detect Chinese
+    bool isChinese(String s) {
+      return RegExp(r'[\u4e00-\u9fff]').hasMatch(s);
+    }
+
     for (int i = 0; i < 3; i++) {
-      if (kIsWeb) {
-        await playWordWeb(word);
-        print("Web SpeechSynthesis called for: $word");
+      // Always reload available voices and selected voice before each playback
+      List<dynamic> voices = await tts.getVoices;
+      availableVoices = voices.whereType<Map>().map((v) => Map<String, String>.from(v)).toList();
+      final prefs = await SharedPreferences.getInstance();
+      final savedVoiceName = prefs.getString('selectedVoice');
+      if (isChinese(word)) {
+        Map<String, String>? chineseVoice;
+        // Prefer user-selected voice if it is a Chinese voice
+        if (savedVoiceName != null && availableVoices.isNotEmpty) {
+          final match = availableVoices.firstWhere(
+            (v) => v['name'] == savedVoiceName && v['locale'] != null && (
+              v['locale']!.contains('zh-CN') || v['locale']!.contains('zh-TW') || v['locale']!.contains('zh-HK')
+            ),
+            orElse: () => {},
+          );
+          if (match.isNotEmpty) {
+            chineseVoice = match;
+          }
+        }
+        // Fallback to auto-detect if not found
+        if (chineseVoice == null) {
+          // 1. zh-CN
+          for (var v in voices) {
+            if (v is Map && v['locale'] != null && v['locale'].toString().contains('zh-CN')) {
+              chineseVoice = Map<String, String>.from(v);
+              break;
+            }
+          }
+          // 2. zh-TW
+          if (chineseVoice == null) {
+            for (var v in voices) {
+              if (v is Map && v['locale'] != null && v['locale'].toString().contains('zh-TW')) {
+                chineseVoice = Map<String, String>.from(v);
+                break;
+              }
+            }
+          }
+          // 3. zh-HK
+          if (chineseVoice == null) {
+            for (var v in voices) {
+              if (v is Map && v['locale'] != null && v['locale'].toString().contains('zh-HK')) {
+                chineseVoice = Map<String, String>.from(v);
+                break;
+              }
+            }
+          }
+        }
+        if (chineseVoice != null) {
+          await tts.setVoice(chineseVoice);
+          await tts.setLanguage(chineseVoice['locale']!);
+          print('TTS Using Voice: Chinese voice: name=' + (chineseVoice['name'] ?? '') + ', locale=' + (chineseVoice['locale'] ?? ''));
+        } else {
+          // No Chinese voice found, show dialog
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('No Chinese TTS Voice Found'),
+                content: const Text('No Chinese (Mandarin/Taiwanese/HK) voice is installed on your device. Please install a Chinese voice in your system settings.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+          return;
+        }
       } else {
-        await tts.stop();
-        final result = await tts.speak(word);
-        print("TTS Speak Result: $result");
+        await tts.setLanguage("en-US");
+        Map<String, String>? usedVoice;
+        if (savedVoiceName != null && availableVoices.isNotEmpty) {
+          final match = availableVoices.firstWhere(
+            (v) => v['name'] == savedVoiceName,
+            orElse: () => availableVoices[0],
+          );
+          await tts.setVoice(match);
+          usedVoice = match;
+          currentVoice = match;
+        } else if (currentVoice != null) {
+          await tts.setVoice(currentVoice!);
+          usedVoice = currentVoice;
+        }
+        if (usedVoice != null) {
+          print('TTS Using Voice: English voice: name=' + (usedVoice['name'] ?? '') + ', locale=' + (usedVoice['locale'] ?? ''));
+        } else {
+          print('TTS Using Voice: Unknown or default voice');
+        }
       }
+      final result = await tts.speak(word);
+      print("TTS Speak Result: $result");
       // Wait for 5 seconds before next repeat, but break if session is outdated
       for (int j = 0; j < 50; j++) {
         await Future.delayed(const Duration(milliseconds: 100));
@@ -126,6 +235,8 @@ class _HomePageState extends State<HomePage> {
 
   void _goPrevious() async {
     if (words.isEmpty) return;
+    await tts.stop();
+    await Future.delayed(const Duration(milliseconds: 150));
     setState(() {
       currentIndex = (currentIndex - 1 + words.length) % words.length;
       _showWord = false;
@@ -135,6 +246,8 @@ class _HomePageState extends State<HomePage> {
 
   void _goNext() async {
     if (words.isEmpty) return;
+    await tts.stop();
+    await Future.delayed(const Duration(milliseconds: 150));
     setState(() {
       currentIndex = (currentIndex + 1) % words.length;
       _showWord = false;

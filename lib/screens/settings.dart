@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../services/spell_api_service.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -12,11 +13,45 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  List<Map<String, String>> availableVoices = [];
+  Map<String, String>? selectedVoice;
   static const String loggedInUserKey = 'loggedInUser';
   @override
   void initState() {
     super.initState();
     _loadLoggedInUser();
+    _loadVoices();
+  }
+
+  Future<void> _loadVoices() async {
+    try {
+      // Use FlutterTts to get voices
+      // Import here to avoid issues on web
+      // ignore: import_deferred_library
+      final tts = await (await importTts());
+      List<dynamic> voices = await tts.getVoices;
+      setState(() {
+        availableVoices = voices.whereType<Map>().map((v) => Map<String, String>.from(v)).toList();
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final savedVoice = prefs.getString('selectedVoice');
+      if (savedVoice != null) {
+        final match = availableVoices.firstWhere(
+          (v) => v['name'] == savedVoice,
+          orElse: () => availableVoices.isNotEmpty ? availableVoices[0] : {},
+        );
+        setState(() {
+          selectedVoice = match.isNotEmpty ? match : null;
+        });
+      }
+    } catch (e) {
+      // ignore errors
+    }
+  }
+
+  Future<dynamic> importTts() async {
+    // Just return FlutterTts instance
+    return FlutterTts();
   }
 
   Future<void> _loadLoggedInUser() async {
@@ -79,7 +114,11 @@ class _SettingsPageState extends State<SettingsPage> {
         });
         // Call onLogin after setState to update parent immediately
         widget.onLogin(name);
-        // Do NOT pop the page after login
+        // If we were navigated from tag assignment, pop back to it
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop('login-success');
+        }
+        // Do NOT pop the page after login otherwise
       }
     } catch (e) {
       setState(() {
@@ -129,6 +168,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void handleLogout() {
     SharedPreferences.getInstance().then((prefs) {
       prefs.remove(loggedInUserKey);
+      prefs.remove('selectedVoice');
       setState(() {
         loggedInUser = null;
         isExistingUser = false;
@@ -237,6 +277,31 @@ class _SettingsPageState extends State<SettingsPage> {
                 message,
                 style: const TextStyle(color: Colors.blueAccent),
               ),
+              if (availableVoices.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const Text("TTS Voice Selection", style: TextStyle(fontWeight: FontWeight.bold)),
+                DropdownButton<Map<String, String>>(
+                  value: selectedVoice,
+                  isExpanded: true,
+                  hint: const Text("Select TTS Voice"),
+                  items: availableVoices.map((voice) {
+                    final name = voice['name'] ?? 'Unknown';
+                    final locale = voice['locale'] ?? '';
+                    return DropdownMenuItem(
+                      value: voice,
+                      child: Text('$name  [$locale]'),
+                    );
+                  }).toList(),
+                  onChanged: (voice) async {
+                    setState(() {
+                      selectedVoice = voice;
+                    });
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('selectedVoice', voice?['name'] ?? '');
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
             ],
           ),
         ),
