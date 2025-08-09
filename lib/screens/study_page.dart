@@ -1,8 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/spell_api_service.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../services/spell_api_service.dart';
+import '../services/tts_helper.dart';
 
 class StudyPage extends StatefulWidget {
   final String userName;
@@ -13,96 +12,204 @@ class StudyPage extends StatefulWidget {
 }
 
 class _StudyPageState extends State<StudyPage> {
-  List<dynamic> tags = [];
-  List<dynamic> words = [];
-  int currentIndex = 0;
-  String? selectedTag;
   final FlutterTts tts = FlutterTts();
 
-  Future<void> loadTags() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cached = prefs.getString("cached_tags_${widget.userName}");
-    if (cached != null) {
-      tags = json.decode(cached);
-    } else {
-      tags = await SpellApiService.getUserTags(widget.userName);
-      prefs.setString("cached_tags_${widget.userName}", json.encode(tags));
-    }
-    setState(() {});
-  }
-
-  Future<void> loadWords(String tag) async {
-    words = await SpellApiService.getWords(widget.userName, tag);
-    setState(() {
-      currentIndex = 0;
-    });
-  }
-
-  void playCurrentWord() {
-    if (words.isNotEmpty) {
-      final word = words[currentIndex]["text"];
-      tts.speak(word);
-    }
-  }
-
-  void nextWord() {
-    setState(() {
-      currentIndex = (currentIndex + 1) % words.length;
-    });
-    playCurrentWord();
-  }
-
-  void previousWord() {
-    setState(() {
-      currentIndex = (currentIndex - 1 + words.length) % words.length;
-    });
-    playCurrentWord();
-  }
+  List<dynamic> _cards = [];
+  int _index = 0;
+  bool _revealed = false;
+  bool _loading = true;
+  String? _emptyReason;
 
   @override
   void initState() {
     super.initState();
-    loadTags();
+    _loadDeck();
+  }
+
+  Future<void> _loadDeck() async {
+    setState(() { _loading = true; });
+    try {
+      final deck = await SpellApiService.getDeck(widget.userName, 10);
+      _cards = deck['cards'] ?? [];
+      _emptyReason = deck['empty_reason'];
+      _index = 0;
+      _revealed = false;
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load deck: $e'))
+      );
+    } finally {
+      if (mounted) setState(() { _loading = false; });
+    }
+  }
+
+  Future<void> _revealAndPlay() async {
+    if (_cards.isEmpty) return;
+    setState(() { _revealed = true; });
+    final card = _cards[_index];
+    await TtsHelper.playWord(
+      context: context,
+      tts: tts,
+      word: card['text'] ?? '',
+      repeatCount: 1,
+    );
+  }
+
+  Future<void> _rate(int quality) async {
+    if (_cards.isEmpty) return;
+    final card = _cards[_index];
+    try {
+      await SpellApiService.submitReview(widget.userName, card['word_id'], quality);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit review: $e'))
+      );
+      return;
+    }
+    if (_index + 1 < _cards.length) {
+      setState(() { _index++; _revealed = false; });
+    } else {
+      setState(() { _revealed = false; });
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('All done for today!'),
+          content: const Text('Great job. Come back tomorrow for more.'),
+          actions: [
+            TextButton(
+              onPressed: () { Navigator.of(context).pop(); },
+              child: const Text('OK'),
+            )
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildEmptyState() {
+    String title = "You're all set!";
+    String body = "No cards to study.";
+    if (_emptyReason == "no_tags") {
+      title = "No tags yet";
+      body = "Assign tags to words to build your study deck.";
+    } else if (_emptyReason == "no_words") {
+      title = "No words found";
+      body = "Add words or assign tags first.";
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(body, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadDeck,
+              icon: const Icon(Icons.refresh),
+              label: const Text("Refresh"),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentWord = words.isNotEmpty ? words[currentIndex]["text"] : "";
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_cards.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Study')),
+        body: _buildEmptyState(),
+      );
+    }
+    final card = _cards[_index];
+    final progress = "${_index + 1}/${_cards.length}";
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Study Words")),
+      appBar: AppBar(
+        title: const Text('Study'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(child: Text(progress)),
+          )
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            DropdownButton<String>(
-              value: selectedTag,
-              hint: const Text("Select tag"),
-              items: tags
-                  .where((tag) => tag != null && (tag["tag"] != null && tag["tag"] is String))
-                  .map<DropdownMenuItem<String>>((tag) {
-                final String tagName = tag["tag"] as String;
-                return DropdownMenuItem<String>(
-                  value: tagName,
-                  child: Text(tagName),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => selectedTag = value);
-                  loadWords(value);
-                }
-              },
+            const SizedBox(height: 12),
+            Expanded(
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      card['text'] ?? '',
+                      style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 20),
-            Text(currentWord, style: const TextStyle(fontSize: 32)),
-            const Spacer(),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _revealAndPlay,
+              icon: const Icon(Icons.volume_up),
+              label: Text(_revealed ? "Play again" : "Play"),
+            ),
+            const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ElevatedButton(onPressed: previousWord, child: const Text("Previous")),
-                ElevatedButton(onPressed: playCurrentWord, child: const Text("Play")),
-                ElevatedButton(onPressed: nextWord, child: const Text("Next")),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                    onPressed: _revealed ? () => _rate(0) : null,
+                    child: const Text('Again'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                    onPressed: _revealed ? () => _rate(1) : null,
+                    child: const Text('Hard'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _revealed ? () => _rate(3) : null,
+                    child: const Text('Good'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    onPressed: _revealed ? () => _rate(5) : null,
+                    child: const Text('Easy'),
+                  ),
+                ),
               ],
             )
           ],

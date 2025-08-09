@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/tts_stub.dart'
     if (dart.library.js_util) '../services/tts_web.dart';
 import '../services/spell_api_service.dart';
+import '../services/tts_helper.dart';
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -70,15 +71,12 @@ class _HomePageState extends State<HomePage> {
     try {
       // Only fetch profile if user is not empty and not 'Guest'
       Map<String, dynamic> profile = {};
-      // If user is empty or Guest, fetch tags as Admin
-      final isGuest = user.isEmpty || user == 'Guest';
-      if (!isGuest) {
+      String tagUser = (user.isEmpty || user == 'Guest') ? 'admin' : user;
+      if (user.isNotEmpty && user != 'Guest') {
         profile = await SpellApiService.getUserProfile(user);
       }
-      
-      final userTags = isGuest
-          ? await SpellApiService.getAdminTags()
-          : await SpellApiService.getUserTags(user);
+      // Always use getUserTags, but use 'admin' for Guest/empty
+      final userTags = await SpellApiService.getUserTags(tagUser);
       print(userTags);
       String? latestTag;
       try {
@@ -120,117 +118,15 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _playWord() async {
     if (words.isEmpty) return;
-    await tts.stop();
-    await Future.delayed(const Duration(milliseconds: 150));
-    _playSession++;
-    final int session = _playSession;
     final word = words[currentIndex]['text'];
-
-    // Helper to detect Chinese
-    bool isChinese(String s) {
-      return RegExp(r'[\u4e00-\u9fff]').hasMatch(s);
-    }
-
-    for (int i = 0; i < 3; i++) {
-      // Always reload available voices and selected voice before each playback
-      List<dynamic> voices = await tts.getVoices;
-      availableVoices = voices.whereType<Map>().map((v) => Map<String, String>.from(v)).toList();
-      final prefs = await SharedPreferences.getInstance();
-      final savedVoiceName = prefs.getString('selectedVoice');
-      if (isChinese(word)) {
-        Map<String, String>? chineseVoice;
-        // Prefer user-selected voice if it is a Chinese voice
-        if (savedVoiceName != null && availableVoices.isNotEmpty) {
-          final match = availableVoices.firstWhere(
-            (v) => v['name'] == savedVoiceName && v['locale'] != null && (
-              v['locale']!.contains('zh-CN') || v['locale']!.contains('zh-TW') || v['locale']!.contains('zh-HK')
-            ),
-            orElse: () => {},
-          );
-          if (match.isNotEmpty) {
-            chineseVoice = match;
-          }
-        }
-        // Fallback to auto-detect if not found
-        if (chineseVoice == null) {
-          // 1. zh-CN
-          for (var v in voices) {
-            if (v is Map && v['locale'] != null && v['locale'].toString().contains('zh-CN')) {
-              chineseVoice = Map<String, String>.from(v);
-              break;
-            }
-          }
-          // 2. zh-TW
-          if (chineseVoice == null) {
-            for (var v in voices) {
-              if (v is Map && v['locale'] != null && v['locale'].toString().contains('zh-TW')) {
-                chineseVoice = Map<String, String>.from(v);
-                break;
-              }
-            }
-          }
-          // 3. zh-HK
-          if (chineseVoice == null) {
-            for (var v in voices) {
-              if (v is Map && v['locale'] != null && v['locale'].toString().contains('zh-HK')) {
-                chineseVoice = Map<String, String>.from(v);
-                break;
-              }
-            }
-          }
-        }
-        if (chineseVoice != null) {
-          await tts.setVoice(chineseVoice);
-          await tts.setLanguage(chineseVoice['locale']!);
-          print('TTS Using Voice: Chinese voice: name=' + (chineseVoice['name'] ?? '') + ', locale=' + (chineseVoice['locale'] ?? ''));
-        } else {
-          // No Chinese voice found, show dialog
-          if (mounted) {
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('No Chinese TTS Voice Found'),
-                content: const Text('No Chinese (Mandarin/Taiwanese/HK) voice is installed on your device. Please install a Chinese voice in your system settings.'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-            );
-          }
-          return;
-        }
-      } else {
-        await tts.setLanguage("en-US");
-        Map<String, String>? usedVoice;
-        if (savedVoiceName != null && availableVoices.isNotEmpty) {
-          final match = availableVoices.firstWhere(
-            (v) => v['name'] == savedVoiceName,
-            orElse: () => availableVoices[0],
-          );
-          await tts.setVoice(match);
-          usedVoice = match;
-          currentVoice = match;
-        } else if (currentVoice != null) {
-          await tts.setVoice(currentVoice!);
-          usedVoice = currentVoice;
-        }
-        if (usedVoice != null) {
-          print('TTS Using Voice: English voice: name=' + (usedVoice['name'] ?? '') + ', locale=' + (usedVoice['locale'] ?? ''));
-        } else {
-          print('TTS Using Voice: Unknown or default voice');
-        }
-      }
-      final result = await tts.speak(word);
-      print("TTS Speak Result: $result");
-      // Wait for 5 seconds before next repeat, but break if session is outdated
-      for (int j = 0; j < 50; j++) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (_playSession != session) return;
-      }
-    }
+    await TtsHelper.playWord(
+      context: context,
+      tts: tts,
+      word: word,
+      currentVoice: currentVoice,
+      availableVoices: availableVoices,
+      repeatCount: 3,
+    );
   }
 
   void _goPrevious() async {
@@ -278,20 +174,25 @@ class _HomePageState extends State<HomePage> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                DropdownButton<String>(
-                  value: selectedTag,
-                  hint: const Text("Select Tag"),
-                  items: tags.map((tag) {
-                    return DropdownMenuItem(value: tag, child: Text(tag));
-                  }).toList(),
-                  onChanged: (tag) {
-                    if (tag != null) {
-                      setState(() {
-                        selectedTag = tag;
-                      });
-                      SpellApiService.logLoginHistory(widget.userName, tag: tag);
-                      fetchWords(tag);
-                    }
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return DropdownButton<String>(
+                      value: selectedTag,
+                      hint: const Text("Select Tag"),
+                      isExpanded: true,
+                      items: tags.map((tag) {
+                        return DropdownMenuItem(value: tag, child: Text(tag));
+                      }).toList(),
+                      onChanged: (tag) {
+                        if (tag != null) {
+                          setState(() {
+                            selectedTag = tag;
+                          });
+                          SpellApiService.logLoginHistory(widget.userName, tag: tag);
+                          fetchWords(tag);
+                        }
+                      },
+                    );
                   },
                 ),
                 const SizedBox(height: 32),

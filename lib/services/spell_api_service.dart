@@ -210,14 +210,28 @@ class SpellApiService {
     }
   }
   
-  static Future<List<dynamic>> getAdminTags() async {
-    final service = SpellApiService();
-    final response = await http.get(Uri.parse('${SpellApiService.baseUrl}tags/admin'));
-    return json.decode(response.body);
-  }
-
   static Future<void> createUserTag(String userName, Map tag) async {
     final service = SpellApiService();
+  }
+
+  static Future<Map<String, dynamic>> getDeck(String userName, int limit) async {
+    final response = await http.get(Uri.parse('${SpellApiService.baseUrl}users/$userName/deck?limit=$limit'));
+    if (response.statusCode != 200) {
+      throw Exception('Deck fetch failed: {response.statusCode}');
+    }
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> submitReview(String userName, int wordId, int quality) async {
+    final response = await http.post(
+      Uri.parse('${SpellApiService.baseUrl}users/$userName/review'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'word_id': wordId, 'quality': quality}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Review submit failed: ${response.statusCode}');
+    }
+    return jsonDecode(response.body);
   }
 
 }
