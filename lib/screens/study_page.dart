@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/spell_api_service.dart';
 import '../services/tts_helper.dart';
 
@@ -19,17 +20,47 @@ class _StudyPageState extends State<StudyPage> {
   bool _revealed = false;
   bool _loading = true;
   String? _emptyReason;
+  String _effectiveUserName = '';
+  bool _shouldShowLogin = false;
 
   @override
   void initState() {
     super.initState();
-    _loadDeck();
+    // Don't load deck here, wait for didChangeDependencies to get latest userName
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _effectiveUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
+    final user = _effectiveUserName;
+    if (user.isEmpty || user == 'Guest') {
+      if (!_shouldShowLogin) {
+        _shouldShowLogin = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please Login first')),
+          );
+        });
+      }
+    } else {
+      if (_shouldShowLogin) {
+        setState(() {
+          _shouldShowLogin = false;
+        });
+      }
+      if (_cards.isEmpty) {
+        _loadDeck();
+      }
+    }
+  }
+
+
   Future<void> _loadDeck() async {
+    // No need to redirect here; handled in _refreshUserAndDeck
     setState(() { _loading = true; });
     try {
-      final deck = await SpellApiService.getDeck(widget.userName, 10);
+      final deck = await SpellApiService.getDeck(_effectiveUserName, 10);
       _cards = deck['cards'] ?? [];
       _emptyReason = deck['empty_reason'];
       _index = 0;
@@ -122,6 +153,12 @@ class _StudyPageState extends State<StudyPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_shouldShowLogin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Study')),
+        body: const Center(child: Text('Please Login first', style: TextStyle(fontSize: 20))),
+      );
+    }
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
