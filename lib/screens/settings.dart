@@ -91,11 +91,14 @@ class _SettingsPageState extends State<SettingsPage> {
   String? loggedInUser;
 
   Future<void> handleLoginOrRegister() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
+
+    final nameRaw = _nameController.text.trim();
+    if (nameRaw.isEmpty) {
       setState(() => message = "Name cannot be empty.");
       return;
     }
+    final name = nameRaw.toUpperCase();
+    _nameController.text = name;
 
     try {
       final profile = await SpellApiService.getUserProfile(name);
@@ -125,6 +128,7 @@ class _SettingsPageState extends State<SettingsPage> {
         isExistingUser = false;
         loggedInUser = null;
         message = "New user. Please fill in your profile to register.";
+        _nameController.text = name;
       });
     }
   }
@@ -271,6 +275,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: const Text("Logout"),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
                 ),
+                // ...existing code...
               ],
               const SizedBox(height: 16),
               Text(

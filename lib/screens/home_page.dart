@@ -119,18 +119,29 @@ class _HomePageState extends State<HomePage> {
   Future<void> _playWord() async {
     if (words.isEmpty) return;
     final word = words[currentIndex]['text'];
-    await TtsHelper.playWord(
-      context: context,
-      tts: tts,
-      word: word,
-      currentVoice: currentVoice,
-      availableVoices: availableVoices,
-      repeatCount: 3,
-    );
+    _playSession++;
+    final session = _playSession;
+    for (int i = 0; i < 3; i++) {
+      if (session != _playSession) return; // interrupted by another button
+      await tts.stop();
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (session != _playSession) return;
+      await TtsHelper.playWord(
+        context: context,
+        tts: tts,
+        word: word,
+        currentVoice: currentVoice,
+        availableVoices: availableVoices,
+        repeatCount: 1,
+      );
+      // Wait for TTS to finish before next repeat
+      await Future.delayed(const Duration(milliseconds: 400));
+    }
   }
 
   void _goPrevious() async {
     if (words.isEmpty) return;
+    _playSession++;
     await tts.stop();
     await Future.delayed(const Duration(milliseconds: 150));
     setState(() {
@@ -142,6 +153,7 @@ class _HomePageState extends State<HomePage> {
 
   void _goNext() async {
     if (words.isEmpty) return;
+    _playSession++;
     await tts.stop();
     await Future.delayed(const Duration(milliseconds: 150));
     setState(() {

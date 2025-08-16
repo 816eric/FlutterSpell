@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'settings.dart';
+import 'leaderboard_page.dart';
 
 
 class OverflowMenu extends StatelessWidget {
@@ -12,11 +13,34 @@ class OverflowMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        ListTile(title: Text("Rewards")),
-        ListTile(title: Text("History")),
-        ListTile(title: Text("Leaderboard")),
         ListTile(
-          title: Text("Settings"),
+          leading: const Icon(Icons.card_giftcard),
+          title: const Text("Rewards & Redeem"),
+          onTap: () {
+            Navigator.of(context).pushNamed('/reward', arguments: userName);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.history),
+          title: const Text("Login History"),
+          onTap: () {
+            Navigator.of(context).pushNamed('/history', arguments: userName);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.emoji_events),
+          title: const Text("Leaderboard"),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => LeaderboardPage(currentUserName: userName),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.settings),
+          title: const Text("Settings"),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(

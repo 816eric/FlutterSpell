@@ -1,8 +1,11 @@
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:http_parser/http_parser.dart';
 
 class SpellApiService {
-  // --- All static methods must be inside this class body ---
+    // --- All static methods must be inside this class body ---
   
   //static final String baseUrl = "https://spellbackend.onrender.com/";
   //static final String baseUrl = "http://127.0.0.1:8000/";
@@ -93,7 +96,7 @@ class SpellApiService {
 
   // Static method to get latest login tag for a user
   static Future<String?> getLatestLoginTag(String userName) async {
-    final service = SpellApiService();
+    // removed unused variable
     final uri = Uri.parse('${SpellApiService.baseUrl}login-history/user/$userName');
     final response = await http.get(uri);
     if (response.statusCode == 200) {
@@ -113,7 +116,7 @@ class SpellApiService {
   }
   // Static method to log login/tag event
   static Future<void> logLoginHistory(String userName, {String? tag}) async {
-    final service = SpellApiService();
+    // removed unused variable
     final uri = Uri.parse('${SpellApiService.baseUrl}login-history/');
     final params = <String, String>{'user_name': userName};
     if (tag != null) params['tag'] = tag;
@@ -124,7 +127,7 @@ class SpellApiService {
   }
   // Static method to create user profile
   static Future<void> createUserProfile(Map<String, dynamic> data) async {
-    final service = SpellApiService();
+    // removed unused variable
     final response = await http.post(
       Uri.parse('${SpellApiService.baseUrl}users/'),
       headers: {'Content-Type': 'application/json'},
@@ -136,7 +139,7 @@ class SpellApiService {
   }
   // Static method to update user profile
   static Future<void> updateUserProfile(String userName, Map<String, dynamic> data) async {
-    final service = SpellApiService();
+    // removed unused variable
     final response = await http.put(
       Uri.parse('${SpellApiService.baseUrl}users/$userName/profile'),
       headers: {'Content-Type': 'application/json'},
@@ -149,7 +152,7 @@ class SpellApiService {
 
   // Static method to get user profile
   static Future<Map<String, dynamic>> getUserProfile(String userName) async {
-    final service = SpellApiService();
+    // removed unused variable
     final response = await http.get(Uri.parse('${SpellApiService.baseUrl}users/$userName/profile'));
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
@@ -202,18 +205,18 @@ class SpellApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getPoints(String userName) async {
-    final service = SpellApiService();
-    final response = await http.get(Uri.parse('${SpellApiService.baseUrl}users/$userName/points/'));
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to get points');
-    }
-  }
+  // Future<Map<String, dynamic>> getPoints(String userName) async {
+  //     // removed unused variable
+  //     final response = await http.get(Uri.parse('${SpellApiService.baseUrl}users/$userName/points/'));
+  //     if (response.statusCode == 200) {
+  //       return jsonDecode(response.body);
+  //     } else {
+  //       throw Exception('Failed to get points');
+  //     }
+  //   }
   
   static Future<void> createUserTag(String userName, Map tag) async {
-    final service = SpellApiService();
+    // removed unused variable
   }
 
   static Future<Map<String, dynamic>> getDeck(String userName, int limit) async {
@@ -234,6 +237,150 @@ class SpellApiService {
       throw Exception('Review submit failed: ${response.statusCode}');
     }
     return jsonDecode(response.body);
+  }
+
+  // Call Gemini AI backend to extract words from image
+  static Future<List<String>> extractWordsFromImageWeb(XFile pickedFile) async {
+    final uri = Uri.parse('${SpellApiService.baseUrl}ai/extract-words');
+    var request = http.MultipartRequest('POST', uri);
+    // Guess content type from file extension
+    String? contentType;
+    final lowerName = pickedFile.name.toLowerCase();
+    if (lowerName.endsWith('.png')) {
+      contentType = 'image/png';
+    } else if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+      contentType = 'image/jpeg';
+    } else if (lowerName.endsWith('.gif')) {
+      contentType = 'image/gif';
+    } else {
+      contentType = 'image/png'; // fallback
+    }
+    request.files.add(await http.MultipartFile.fromBytes(
+      'file',
+      await pickedFile.readAsBytes(),
+      filename: pickedFile.name,
+      contentType: MediaType.parse(contentType),
+    ));
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode == 200) {
+      final List<dynamic> words = jsonDecode(response.body);
+      print('DEBUG extractWordsFromImageWeb response.body: ${response.body}');
+      return words.map((e) => e.toString()).toList();
+    } else {
+      throw Exception('Failed to extract words: ${response.body}');
+    }
+  }
+
+  // ===== Leaderboard =====
+
+  static Future<Map<String, dynamic>> getLeaderboardTop({
+    int limit = 20,
+    String? school,
+    String? grade,
+    String? userNameHeader, // optional; used for auto-apply defaults on server
+    }) async {
+    final qp = <String, String>{ 'limit': '$limit' };
+    if (school != null) qp['school'] = school;
+    if (grade != null) qp['grade'] = grade;
+
+    final uri = Uri.parse('${SpellApiService.baseUrl}leaderboard/top').replace(queryParameters: qp);
+    final headers = <String, String>{};
+    if (userNameHeader != null) headers['X-User-Name'] = userNameHeader;
+
+    final resp = await http.get(uri, headers: headers);
+    if (resp.statusCode != 200) {
+      throw Exception('Leaderboard fetch failed: ${resp.statusCode}');
+    }
+    return json.decode(resp.body) as Map<String, dynamic>;
+    }
+
+    static Future<Map<String, dynamic>> getLeaderboardMe({
+    int limit = 20,
+    String? school,
+    String? grade,
+    String? userNameHeader,
+    }) async {
+    final qp = <String, String>{ 'limit': '$limit' };
+    if (school != null) qp['school'] = school;
+    if (grade != null) qp['grade'] = grade;
+
+    final uri = Uri.parse('${SpellApiService.baseUrl}leaderboard/me').replace(queryParameters: qp);
+    final headers = <String, String>{};
+    if (userNameHeader != null) headers['X-User-Name'] = userNameHeader;
+
+    final resp = await http.get(uri, headers: headers);
+    if (resp.statusCode != 200) {
+      throw Exception('Leaderboard(me) fetch failed: ${resp.statusCode}');
+    }
+    return json.decode(resp.body) as Map<String, dynamic>;
+    }
+
+  // Fetch all unique schools for dropdown
+  static Future<List<String>> getLeaderboardSchools() async {
+    final uri = Uri.parse('${SpellApiService.baseUrl}leaderboard/schools');
+    final resp = await http.get(uri);
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to fetch schools: ${resp.statusCode}');
+    }
+    final List<dynamic> schools = json.decode(resp.body);
+    return schools.map((e) => e.toString()).toList();
+  }
+
+  // Fetch all unique grades for dropdown, with optional school filter
+  static Future<List<String>> getLeaderboardGrades({String? school}) async {
+    final qp = <String, String>{};
+    if (school != null && school.isNotEmpty) qp['school'] = school;
+    final uri = Uri.parse('${SpellApiService.baseUrl}leaderboard/grades').replace(queryParameters: qp);
+    final resp = await http.get(uri);
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to fetch grades: ${resp.statusCode}');
+    }
+    final List<dynamic> grades = json.decode(resp.body);
+    return grades.map((e) => e.toString()).toList();
+  }
+
+  // ===== Rewards =====
+    static Future<Map<String, dynamic>> getPoints(String userName) async {
+      final resp = await http.get(Uri.parse('${SpellApiService.baseUrl}users/$userName/points/'));
+      if (resp.statusCode != 200) {
+        throw Exception('Get points failed: ${resp.statusCode}');
+      }
+      return json.decode(resp.body) as Map<String, dynamic>;
+    }
+
+  static Future<Map<String, dynamic>> redeemPoints(String userName, String item, int points) async {
+    final body = json.encode({'item': item, 'points': points});
+    final resp = await http.post(
+      Uri.parse('${SpellApiService.baseUrl}users/$userName/points/redeem'),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    if (resp.statusCode == 400 && resp.body.contains('insufficient_points')) {
+      throw Exception('insufficient_points');
+    }
+    if (resp.statusCode != 200) {
+      throw Exception('Redeem failed: ${resp.statusCode}');
+    }
+    return json.decode(resp.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getRewardHistory(String userName, {int page = 1}) async {
+  final resp = await http.get(Uri.parse('${SpellApiService.baseUrl}users/$userName/points/history?page=$page'));
+    if (resp.statusCode != 200) {
+      throw Exception('History failed: ${resp.statusCode}');
+    }
+    return json.decode(resp.body) as Map<String, dynamic>;
+  }
+
+  // Get login history for a user
+  static Future<List<dynamic>> getLoginHistory(String userName) async {
+    final response = await http.get(Uri.parse('${SpellApiService.baseUrl}login-history/user/$userName'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to get login history');
+    }
   }
 
 }

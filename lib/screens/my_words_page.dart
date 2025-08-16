@@ -1,8 +1,13 @@
 import 'dart:io';
+// import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_ml_kit/google_ml_kit.dart';
+// import 'package:tesseract_ocr/tesseract_ocr.dart';
+// import 'package:tesseract_ocr/tesseract_ocr.dart';
 import '../services/spell_api_service.dart';
-import 'tag_manager.dart';
+// import 'tag_manager.dart';
 import 'tag_assignment.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,7 +20,7 @@ class MyWordsPage extends StatefulWidget {
 }
 
 class _MyWordsPageState extends State<MyWordsPage> {
-  int _selectedPage = 0;
+  // int _selectedPage = 0;
 
   final List<String> _pages = [
     "Add My Words",
@@ -34,7 +39,7 @@ class _MyWordsPageState extends State<MyWordsPage> {
             title: Text(_pages[index]),
             trailing: const Icon(Icons.arrow_forward_ios),
             onTap: () async {
-              setState(() => _selectedPage = index);
+              // setState(() => _selectedPage = index); // removed unused _selectedPage
               // Always get the latest userName from SharedPreferences before navigating
               final prefs = await SharedPreferences.getInstance();
               final savedUser = prefs.getString('loggedInUser');
@@ -79,9 +84,32 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
       source: fromCamera ? ImageSource.camera : ImageSource.gallery,
     );
     if (pickedFile != null) {
-      _imageFile = File(pickedFile.path);
-      // Simulated OCR result
-      String extractedText = "[extracted text from image]";
+      String extractedText = "";
+      if (kIsWeb) {
+        // Web: Use Gemini AI backend
+        try {
+          final words = await SpellApiService.extractWordsFromImageWeb(pickedFile);
+          print(words);
+          extractedText = words.join(', ');
+          print(extractedText);
+        } catch (e) {
+          extractedText = "[Failed to extract text: $e]";
+        }
+      } else if (Platform.isAndroid) {
+        // Android: Use google_ml_kit
+        _imageFile = File(pickedFile.path);
+        try {
+          final inputImage = InputImage.fromFile(_imageFile!);
+          final textRecognizer = GoogleMlKit.vision.textRecognizer();
+          final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+          extractedText = recognizedText.text.trim();
+          await textRecognizer.close();
+        } catch (e) {
+          extractedText = "[Failed to extract text: $e]";
+        }
+      } else {
+        extractedText = "[OCR not supported on this platform]";
+      }
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -98,7 +126,7 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
                 Navigator.of(context).pop();
                 setState(() {
                   _wordController.text = extractedText;
-                  _tagController.text = "photo_imported";
+                  _tagController.text = "sjij::Px::CN/EN::Termx";
                 });
               },
               child: const Text("OK"),
@@ -110,22 +138,30 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
   }
 
   Future<void> submitWord() async {
-    final word = _wordController.text.trim();
+    final input = _wordController.text.trim();
     final lang = _selectedLanguage;
     final tag = _tagController.text.trim();
 
-    if (word.isEmpty || lang.isEmpty) return;
+    if (input.isEmpty || lang.isEmpty) return;
 
-    // Prepare word data without tag
-    final wordData = {
-      "text": word,
-      "language": lang
-    };
-
-    // Pass tag as query parameter if not empty
-    await SpellApiService.createUserWord(widget.userName, wordData, tag: tag.isNotEmpty ? tag : null);
-
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Word submitted")));
+    // Split input by newlines or commas
+    final entries = input.split(RegExp(r'[\n,]')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    int successCount = 0;
+    for (final word in entries) {
+      final wordData = {
+        "text": word,
+        "language": lang
+      };
+      try {
+        await SpellApiService.createUserWord(widget.userName, wordData, tag: tag.isNotEmpty ? tag : null);
+        successCount++;
+      } catch (e) {
+        // Optionally handle errors for individual words
+      }
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Added $successCount word(s)/sentence(s)")),
+    );
     _wordController.clear();
     _tagController.clear();
   }

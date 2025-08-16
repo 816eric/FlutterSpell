@@ -7,6 +7,8 @@ import 'screens/overflow_menu.dart';
 import 'widgets/top_ad_bar.dart';
 import 'services/spell_api_service.dart';
 import 'screens/settings.dart';
+import 'screens/reward_page.dart';
+import 'screens/history_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -20,24 +22,28 @@ class SpellApp extends StatelessWidget {
       title: 'Spell Practice App',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: MainTabController(),
-      onGenerateRoute: (settings) {
-        if (settings.name == '/settings') {
-          // Find the nearest MainTabControllerState to get the onLogin callback
-          return MaterialPageRoute(
-            builder: (context) {
-              final mainTabState = context.findAncestorStateOfType<_MainTabControllerState>();
-              return SettingsPage(
-                onLogin: (userName) {
-                  if (mainTabState != null) {
-                    mainTabState._onUserLogin(userName);
-                  }
-                  Navigator.of(context).pop();
-                },
-              );
+      routes: {
+        '/reward': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final userName = (args is String && args.isNotEmpty) ? args : "Guest";
+          return RewardPage(currentUserName: userName);
+        },
+        '/settings': (context) {
+          final mainTabState = context.findAncestorStateOfType<_MainTabControllerState>();
+          return SettingsPage(
+            onLogin: (userName) {
+              if (mainTabState != null) {
+                mainTabState._onUserLogin(userName);
+              }
+              Navigator.of(context).pop();
             },
           );
-        }
-        return null;
+        },
+        '/history': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final userName = (args is String && args.isNotEmpty) ? args : "Guest";
+          return HistoryPage(currentUserName: userName);
+        },
       },
     );
   }
