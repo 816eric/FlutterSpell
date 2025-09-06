@@ -1,11 +1,11 @@
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
 
 class SpellApiService {
-    // --- All static methods must be inside this class body ---
+ 
+  // --- All static methods must be inside this class body ---
   
   //static final String baseUrl = "https://spellbackend.onrender.com/";
   //static final String baseUrl = "http://127.0.0.1:8000/";
@@ -161,6 +161,25 @@ class SpellApiService {
     }
   }
 
+  // Verify user password with backend (matches FastAPI route)
+  static Future<bool> verifyUserPassword(String userName, String password) async {
+    //print('DEBUG verifyUserPassword: userName=$userName, password=$password');
+    final response = await http.post(
+      Uri.parse('${SpellApiService.baseUrl}users/$userName/verify-password'),
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'password=${Uri.encodeComponent(password)}',
+    );
+    //print('DEBUG verifyUserPassword response.statusCode: ${response.statusCode}');
+    //print('DEBUG verifyUserPassword response.body: ${response.body}');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      //print('DEBUG verifyUserPassword decoded data: $data');
+      return data['verified'] == true;
+    } else {
+      return false;
+    }
+  }
+
   // Static method to get user tags
   static Future<List<Map<String, dynamic>>> getUserTags(String userName) async {
     final response = await http.get(Uri.parse('${SpellApiService.baseUrl}tags/user/$userName'));
@@ -218,12 +237,16 @@ class SpellApiService {
   static Future<void> createUserTag(String userName, Map tag) async {
     // removed unused variable
   }
-
-  static Future<Map<String, dynamic>> getDeck(String userName, int limit) async {
-    final response = await http.get(Uri.parse('${SpellApiService.baseUrl}users/$userName/deck?limit=$limit'));
+  static Future<Map<String, dynamic>> getDeck(String userName, int limit, {String? tag}) async {
+    final qp = <String, String>{'limit': '$limit'};
+    if (tag != null && tag.isNotEmpty) qp['tag'] = tag;
+    final uri = Uri.parse('${SpellApiService.baseUrl}users/$userName/deck').replace(queryParameters: qp);
+    print('DEBUG getDeck uri: $uri');
+    final response = await http.get(uri);
     if (response.statusCode != 200) {
-      throw Exception('Deck fetch failed: {response.statusCode}');
+      throw Exception('Deck fetch failed: ${response.statusCode}');
     }
+    print('DEBUG getDeck response.body: ${response.body}');
     return jsonDecode(response.body);
   }
 
@@ -382,5 +405,37 @@ class SpellApiService {
       throw Exception('Failed to get login history');
     }
   }
+
+  // Get user settings
+  static Future<Map<String, dynamic>?> getUserSettings(int userId) async {
+    final response = await http.get(Uri.parse('${SpellApiService.baseUrl}settings/$userId'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else if (response.statusCode == 404) {
+      return null;
+    } else {
+      throw Exception('Failed to get user settings');
+    }
+  }
+
+  // Update user settings
+    static Future<Map<String, dynamic>> updateUserSettings(
+      int userId, {
+      String? studyWordsSource,
+      int? numStudyWords,
+      int? spellRepeatCount,
+    }) async {
+      final uri = Uri.parse('${SpellApiService.baseUrl}settings/$userId');
+      final params = <String, String>{};
+      if (studyWordsSource != null) params['study_words_source'] = studyWordsSource;
+      if (numStudyWords != null) params['num_study_words'] = numStudyWords.toString();
+      if (spellRepeatCount != null) params['spell_repeat_count'] = spellRepeatCount.toString();
+      final response = await http.post(uri.replace(queryParameters: params));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to update user settings');
+      }
+    }
 
 }

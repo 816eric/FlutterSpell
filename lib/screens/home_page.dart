@@ -6,6 +6,10 @@ import '../services/tts_stub.dart'
     if (dart.library.js_util) '../services/tts_web.dart';
 import '../services/spell_api_service.dart';
 import '../services/tts_helper.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'my_words_page.dart';
+import '../../main.dart';
+// For url_launcher compatibility with web, use launch and canLaunch with String
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -28,6 +32,7 @@ class _HomePageState extends State<HomePage> {
   int points = 0;
   Map<String, String>? currentVoice;
   List<Map<String, String>> availableVoices = [];
+  int spellRepeatCount = 2; // Default value, loaded from backend
 
   @override
   void initState() {
@@ -74,6 +79,20 @@ class _HomePageState extends State<HomePage> {
       String tagUser = (user.isEmpty || user == 'Guest') ? 'admin' : user;
       if (user.isNotEmpty && user != 'Guest') {
         profile = await SpellApiService.getUserProfile(user);
+        // Load spellRepeatCount from backend settings
+        final userId = profile['id'];
+        if (userId != null) {
+          final settings = await SpellApiService.getUserSettings(userId);
+          if (settings != null && settings['spell_repeat_count'] != null) {
+            spellRepeatCount = settings['spell_repeat_count'];
+          } else {
+            spellRepeatCount = 2;
+          }
+        } else {
+          spellRepeatCount = 2;
+        }
+      } else {
+        spellRepeatCount = 2;
       }
       // Always use getUserTags, but use 'admin' for Guest/empty
       final userTags = await SpellApiService.getUserTags(tagUser);
@@ -92,7 +111,19 @@ class _HomePageState extends State<HomePage> {
         points = profile['total_points'] ?? 0;
         tags = tagNames;
         selectedTag = preselectTag;
+        spellRepeatCount = spellRepeatCount;
       });
+      if (tagNames.isEmpty) {
+        // Show SnackBar and switch to My Words tab
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please add words/tags in My Words page.')),
+          );
+          // Switch to My Words tab (index 2)
+          MainTabController.switchToTab(2);
+        });
+        return;
+      }
       if (preselectTag != null) {
         fetchWords(preselectTag);
       }
@@ -102,6 +133,7 @@ class _HomePageState extends State<HomePage> {
         points = 0;
         tags = [];
         selectedTag = null;
+        spellRepeatCount = 2;
       });
     }
   }
@@ -121,7 +153,8 @@ class _HomePageState extends State<HomePage> {
     final word = words[currentIndex]['text'];
     _playSession++;
     final session = _playSession;
-    for (int i = 0; i < 3; i++) {
+
+  for (int i = 0; i < spellRepeatCount; i++) {
       if (session != _playSession) return; // interrupted by another button
       await tts.stop();
       await Future.delayed(const Duration(milliseconds: 100));
@@ -170,6 +203,30 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Spell Practice'),
         backgroundColor: Colors.blueAccent,
+        actions: [
+          Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text('Download Apps', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.android, color: Colors.green),
+                tooltip: 'Download Android App',
+                onPressed: () async {
+                  const url = 'https://drive.google.com/file/d/1zMnHQWN3vspH-p_R9NWDL6wJc-0kTHKM/view?usp=drive_link';
+                  if (await canLaunch(url)) {
+                    await launch(url);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Could not open link')),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

@@ -36,6 +36,18 @@ class TtsHelper {
             chineseVoice = match;
           }
         }
+        // If user did not set a voice, try Sinij first
+        if (chineseVoice == null) {
+          final sinijVoice = voicesList.firstWhere(
+            (v) => v['name']?.toLowerCase() == 'sinij' && v['locale'] != null && (
+              v['locale']!.contains('zh-CN') || v['locale']!.contains('zh-TW') || v['locale']!.contains('zh-HK')
+            ),
+            orElse: () => {},
+          );
+          if (sinijVoice.isNotEmpty) {
+            chineseVoice = sinijVoice;
+          }
+        }
         // Fallback to auto-detect if not found
         if (chineseVoice == null) {
           for (var v in voices) {

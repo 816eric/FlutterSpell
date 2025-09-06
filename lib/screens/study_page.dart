@@ -4,6 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/spell_api_service.dart';
 import '../services/tts_helper.dart';
 
+  int _deckLimit = 10;
+  String? _deckTag;
+  bool _settingsLoaded = false;
+
 class StudyPage extends StatefulWidget {
   final String userName;
   const StudyPage({super.key, required this.userName});
@@ -32,9 +36,10 @@ class _StudyPageState extends State<StudyPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _effectiveUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
-    final user = _effectiveUserName;
-    if (user.isEmpty || user == 'Guest') {
+    final newUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
+    final userChanged = newUserName != _effectiveUserName;
+    _effectiveUserName = newUserName;
+    if (_effectiveUserName.isEmpty || _effectiveUserName == 'Guest') {
       if (!_shouldShowLogin) {
         _shouldShowLogin = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -43,15 +48,51 @@ class _StudyPageState extends State<StudyPage> {
           );
         });
       }
+      setState(() {
+        _loading = false;
+        _settingsLoaded = false;
+        _cards = [];
+      });
     } else {
       if (_shouldShowLogin) {
         setState(() {
           _shouldShowLogin = false;
         });
       }
-      if (_cards.isEmpty) {
-        _loadDeck();
-      }
+      // Always reload settings/deck if user changed or not loaded
+      setState(() {
+        _loading = true;
+        _settingsLoaded = false;
+        _cards = [];
+      });
+      _loadUserSettingsAndDeck();
+    }
+  }
+  Future<void> _loadUserSettingsAndDeck() async {
+    setState(() { _loading = true; });
+    try {
+      final profile = await SpellApiService.getUserProfile(_effectiveUserName);
+        final userId = profile['id'] ?? null;
+        Map<String, dynamic>? settings;
+        if (userId != null) {
+          settings = await SpellApiService.getUserSettings(userId);
+        }
+        // Default values if no settings
+        _deckLimit = settings?['num_study_words'] ?? 10;
+        final studyWordsSource = settings?['study_words_source'] ?? 'ALL_TAGS';
+        if (studyWordsSource == 'ALL_TAGS') {
+          _deckTag = null;
+        } else {
+          _deckTag = await SpellApiService.getLatestLoginTag(_effectiveUserName);
+        }
+      _settingsLoaded = true;
+      await _loadDeck();
+    } catch (e) {
+      // fallback to defaults
+      _deckLimit = 10;
+      _deckTag = null;
+      _settingsLoaded = true;
+      await _loadDeck();
     }
   }
 
@@ -60,7 +101,7 @@ class _StudyPageState extends State<StudyPage> {
     // No need to redirect here; handled in _refreshUserAndDeck
     setState(() { _loading = true; });
     try {
-      final deck = await SpellApiService.getDeck(_effectiveUserName, 10);
+      final deck = await SpellApiService.getDeck(_effectiveUserName, _deckLimit, tag: _deckTag);
       _cards = deck['cards'] ?? [];
       _emptyReason = deck['empty_reason'];
       _index = 0;
@@ -90,18 +131,19 @@ class _StudyPageState extends State<StudyPage> {
   Future<void> _rate(int quality) async {
     if (_cards.isEmpty) return;
     final card = _cards[_index];
-    try {
-      await SpellApiService.submitReview(widget.userName, card['word_id'], quality);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to submit review: $e'))
-      );
-      return;
-    }
     if (_index + 1 < _cards.length) {
       setState(() { _index++; _revealed = false; });
     } else {
+      // Only submit review after last card
+      try {
+        await SpellApiService.submitReview(widget.userName, card['word_id'], quality);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit review: $e'))
+        );
+        return;
+      }
       setState(() { _revealed = false; });
       if (!mounted) return;
       showDialog(

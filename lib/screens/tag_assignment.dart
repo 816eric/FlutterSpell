@@ -169,7 +169,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
         final path = parentPath.isEmpty ? node.label : '$parentPath::${node.label}';
         final groupId = path.hashCode;
         if (node.children.isNotEmpty) {
-          if (!expandedGroups.contains(groupId)) expandedGroups.add(groupId);
+          // Do NOT add groupId to expandedGroups by default; all collapsed by default
           return Container(
             margin: EdgeInsets.only(left: 16.0 * level),
             child: Theme(
@@ -183,7 +183,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                     Text(node.label, style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
-                initiallyExpanded: true,
+                initiallyExpanded: false,
                 trailing: expandedGroups.contains(groupId)
                     ? const Icon(Icons.remove, color: Colors.black)
                     : const Icon(Icons.add, color: Colors.black),

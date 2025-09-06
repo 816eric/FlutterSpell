@@ -50,11 +50,24 @@ class SpellApp extends StatelessWidget {
 }
 
 class MainTabController extends StatefulWidget {
+  static final GlobalKey<_MainTabControllerState> mainTabKey = GlobalKey<_MainTabControllerState>();
+  static void switchToTab(int index) {
+    final state = mainTabKey.currentState;
+    if (state != null) {
+      state.switchToTab(index);
+    }
+  }
+  MainTabController({Key? key}) : super(key: key ?? mainTabKey);
   @override
   State<MainTabController> createState() => _MainTabControllerState();
 }
 
 class _MainTabControllerState extends State<MainTabController> {
+  void switchToTab(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   int _selectedIndex = 0;
   String userName = "";
