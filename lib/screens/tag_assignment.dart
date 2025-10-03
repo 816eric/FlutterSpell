@@ -251,12 +251,12 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
   Widget build(BuildContext context) {
     if (_shouldShowLogin) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Tag Assignment")),
+        appBar: AppBar(title: const Text("Manage Exist Words/Classes")),
         body: const Center(child: Text('Please Login first', style: TextStyle(fontSize: 20))),
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text("Tag Assignment")),
+      appBar: AppBar(title: const Text("Assign/Unassign Classes from Lib")),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
@@ -272,7 +272,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Available tags
-                    const Text("Available Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text("Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     _buildTagTree(availableTags, selectedAvailableTagIds, expandedAvailableGroups, false),
                     ElevatedButton(
@@ -281,7 +281,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                     ),
                     divider,
                     // Assigned tags
-                    const Text("Assigned Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text("Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     _buildTagTree(userTags, selectedAssignedTagIds, expandedAssignedGroups, true),
                     ElevatedButton(
@@ -313,7 +313,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Text("Available Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text("Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 8),
                               Expanded(
                                 child: Scrollbar(
@@ -342,7 +342,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Text("Assigned Tags", style: TextStyle(fontWeight: FontWeight.bold)),
+                              const Text("Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 8),
                               Expanded(
                                 child: Scrollbar(

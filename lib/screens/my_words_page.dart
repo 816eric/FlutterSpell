@@ -24,7 +24,7 @@ class _MyWordsPageState extends State<MyWordsPage> {
 
   final List<String> _pages = [
     "Add My Words",
-    "Tag Assignment"
+    "Manage Exist Words/Classes"
   ];
 
   @override
