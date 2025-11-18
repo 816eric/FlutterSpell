@@ -9,7 +9,13 @@ import 'services/spell_api_service.dart';
 import 'screens/settings.dart';
 import 'screens/reward_page.dart';
 import 'screens/history_page.dart';
+import 'screens/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+Future<String?> _getLoggedInUser() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString('loggedInUser');
+}
 
 void main() {
   runApp(SpellApp());
@@ -18,32 +24,64 @@ void main() {
 class SpellApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Spell Practice App',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: MainTabController(),
-      routes: {
-        '/reward': (context) {
-          final args = ModalRoute.of(context)?.settings.arguments;
-          final userName = (args is String && args.isNotEmpty) ? args : "Guest";
-          return RewardPage(currentUserName: userName);
-        },
-        '/settings': (context) {
-          final mainTabState = context.findAncestorStateOfType<_MainTabControllerState>();
-          return SettingsPage(
-            onLogin: (userName) {
-              if (mainTabState != null) {
-                mainTabState._onUserLogin(userName);
+    return FutureBuilder<String?>(
+      future: _getLoggedInUser(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const MaterialApp(home: Scaffold(body: Center(child: CircularProgressIndicator())));
+        }
+        final loggedInUser = snapshot.data;
+        final bool needsLogin = (loggedInUser == null || loggedInUser.isEmpty || loggedInUser == 'Guest');
+        final Widget homeWidget = needsLogin ? const LoginPage() : MainTabController();
+        print('SpellApp: launching app, needsLogin=$needsLogin, home=${homeWidget.runtimeType}');
+        return MaterialApp(
+          title: 'Spell Practice App',
+          theme: ThemeData(primarySwatch: Colors.blue),
+          home: homeWidget,
+          routes: {
+            '/login': (context) { print('Route /login builder'); return const LoginPage(); },
+            '/home': (context) { print('Route /home builder'); return MainTabController(); },
+            '/reward': (context) {
+              try {
+                final args = ModalRoute.of(context)?.settings.arguments;
+                final userName = (args is String && args.isNotEmpty) ? args : "Guest";
+                return RewardPage(currentUserName: userName);
+              } catch (e, st) {
+                print('Error building /reward: $e');
+                print(st);
+                return Scaffold(body: Center(child: Text('Failed to build RewardPage: $e')));
               }
-              Navigator.of(context).pop();
             },
-          );
-        },
-        '/history': (context) {
-          final args = ModalRoute.of(context)?.settings.arguments;
-          final userName = (args is String && args.isNotEmpty) ? args : "Guest";
-          return HistoryPage(currentUserName: userName);
-        },
+            '/settings': (context) {
+              try {
+                final mainTabState = context.findAncestorStateOfType<_MainTabControllerState>();
+                return SettingsPage(
+                  onLogin: (userName) {
+                    if (mainTabState != null) {
+                      mainTabState._onUserLogin(userName);
+                    }
+                    Navigator.of(context).pop();
+                  },
+                );
+              } catch (e, st) {
+                print('Error building /settings: $e');
+                print(st);
+                return Scaffold(body: Center(child: Text('Failed to build SettingsPage: $e')));
+              }
+            },
+            '/history': (context) {
+              try {
+                final args = ModalRoute.of(context)?.settings.arguments;
+                final userName = (args is String && args.isNotEmpty) ? args : "Guest";
+                return HistoryPage(currentUserName: userName);
+              } catch (e, st) {
+                print('Error building /history: $e');
+                print(st);
+                return Scaffold(body: Center(child: Text('Failed to build HistoryPage: $e')));
+              }
+            },
+          },
+        );
       },
     );
   }
@@ -99,23 +137,7 @@ class _MainTabControllerState extends State<MainTabController> {
     }
   }
 
-  Future<void> _ensureValidUserName() async {
-    String name = userName;
-    if (name.isEmpty) {
-      setState(() {
-        userName = "Guest";
-      });
-      return;
-    }
-    try {
-      // Try to fetch profile, fallback to Guest if fails
-      await SpellApiService.getUserProfile(name);
-    } catch (_) {
-      setState(() {
-        userName = "Guest";
-      });
-    }
-  }
+
 
   void _onUserLogin(String newUserName) async {
     String name = newUserName.trim();

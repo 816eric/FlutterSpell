@@ -8,7 +8,6 @@ import '../services/spell_api_service.dart';
 import '../services/tts_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'my_words_page.dart';
-import '../../main.dart';
 // For url_launcher compatibility with web, use launch and canLaunch with String
 
 class HomePage extends StatefulWidget {
@@ -114,13 +113,12 @@ class _HomePageState extends State<HomePage> {
         spellRepeatCount = spellRepeatCount;
       });
       if (tagNames.isEmpty) {
-        // Show SnackBar and switch to My Words tab
+        // Show SnackBar and navigate to My Words page so user can add tags
         WidgetsBinding.instance.addPostFrameCallback((_) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please add words/tags in My Words page.')),
           );
-          // Switch to My Words tab (index 2)
-          MainTabController.switchToTab(2);
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => MyWordsPage(userName: user)));
         });
         return;
       }
