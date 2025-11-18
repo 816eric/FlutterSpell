@@ -7,6 +7,7 @@ import 'package:google_ml_kit/google_ml_kit.dart';
 // import 'package:tesseract_ocr/tesseract_ocr.dart';
 // import 'package:tesseract_ocr/tesseract_ocr.dart';
 import '../services/spell_api_service.dart';
+import '../services/ai_service.dart';
 // import 'tag_manager.dart';
 import 'tag_assignment.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -85,31 +86,75 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
     );
     if (pickedFile != null) {
       String extractedText = "";
+      
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Expanded(child: Text('Extracting words from image...')),
+            ],
+          ),
+        ),
+      );
+      
       if (kIsWeb) {
-        // Web: Use Gemini AI backend
+        // Web: Use AI Service for word extraction
         try {
-          final words = await SpellApiService.extractWordsFromImageWeb(pickedFile);
-          print(words);
+          final aiService = AIService();
+          final words = await aiService.extractWordsFromImage(pickedFile);
+          print('[MyWordsPage] Extracted words: $words');
           extractedText = words.join(', ');
-          print(extractedText);
+          print('[MyWordsPage] Joined text: $extractedText');
         } catch (e) {
-          extractedText = "[Failed to extract text: $e]";
+          print('[MyWordsPage] Error extracting words: $e');
+          if (e.toString().contains('API key is not configured')) {
+            extractedText = "[Please configure AI settings first. Go to Settings > AI Configuration]";
+          } else {
+            extractedText = "[Failed to extract text: $e]";
+          }
         }
       } else if (Platform.isAndroid) {
-        // Android: Use google_ml_kit
-        _imageFile = File(pickedFile.path);
+        // Android: Try AI Service first, fallback to google_ml_kit
         try {
-          final inputImage = InputImage.fromFile(_imageFile!);
-          final textRecognizer = GoogleMlKit.vision.textRecognizer();
-          final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-          extractedText = recognizedText.text.trim();
-          await textRecognizer.close();
+          final aiService = AIService();
+          final apiKey = await aiService.getAiApiKey();
+          
+          if (apiKey.isNotEmpty) {
+            // Use AI Service if configured
+            final words = await aiService.extractWordsFromImage(pickedFile);
+            print('[MyWordsPage] Extracted words: $words');
+            extractedText = words.join(', ');
+          } else {
+            // Fallback to google_ml_kit
+            _imageFile = File(pickedFile.path);
+            final inputImage = InputImage.fromFile(_imageFile!);
+            final textRecognizer = GoogleMlKit.vision.textRecognizer();
+            final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+            extractedText = recognizedText.text.trim();
+            await textRecognizer.close();
+          }
         } catch (e) {
-          extractedText = "[Failed to extract text: $e]";
+          print('[MyWordsPage] Error extracting words: $e');
+          if (e.toString().contains('API key is not configured')) {
+            extractedText = "[Please configure AI settings first. Go to Settings > AI Configuration]";
+          } else {
+            extractedText = "[Failed to extract text: $e]";
+          }
         }
       } else {
         extractedText = "[OCR not supported on this platform]";
       }
+      
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+      
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(

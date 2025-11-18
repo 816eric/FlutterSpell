@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/spell_api_service.dart';
+import 'ai_config_page.dart';
 
 class SettingsPage extends StatefulWidget {
   final Function(String userName) onLogin;
@@ -674,6 +675,39 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
               ],
+              // ===================== AI CONFIGURATION BUTTON =====================
+              const SizedBox(height: 20),
+              Card(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AIConfigPage(),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.smart_toy, color: Colors.blue[700], size: 32),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Text(
+                            'AI Configuration',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
