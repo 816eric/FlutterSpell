@@ -3,6 +3,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/spell_api_service.dart';
 import '../services/tts_helper.dart';
+import '../services/ai_service.dart';
 
   int _deckLimit = 10;
   String? _deckTag;
@@ -26,6 +27,8 @@ class _StudyPageState extends State<StudyPage> {
   String? _emptyReason;
   String _effectiveUserName = '';
   bool _shouldShowLogin = false;
+  String? _backCard;
+  bool _loadingBackCard = false;
 
   @override
   void initState() {
@@ -118,21 +121,116 @@ class _StudyPageState extends State<StudyPage> {
 
   Future<void> _revealAndPlay() async {
     if (_cards.isEmpty) return;
-    setState(() { _revealed = true; });
     final card = _cards[_index];
+    setState(() { _revealed = true; _loadingBackCard = true; });
+
+    // Start loading back card immediately (do not await yet)
+    final backCardFuture = _loadBackCard(card);
+
+    // Play the word while back card is being fetched/generated
     await TtsHelper.playWord(
       context: context,
       tts: tts,
       word: card['text'] ?? '',
       repeatCount: 1,
     );
+
+    // Ensure back card has finished loading (ignore errors already handled inside)
+    try { await backCardFuture; } catch (_) {}
+
+    // Speak back card if now available
+    if (_backCard != null && _backCard!.isNotEmpty) {
+      await TtsHelper.playWord(
+        context: context,
+        tts: tts,
+        word: _backCard!,
+        repeatCount: 1,
+      );
+    }
+  }
+
+  Future<void> _loadBackCard(dynamic card) async {
+    try {
+      // Always attempt to fetch latest from backend first
+      final wordId = card['word_id'] as int;
+      String? backCard = card['back_card'] as String?; // deck-provided (may be stale)
+      _loadingBackCard = true;
+
+      // Fetch authoritative value from backend
+      try {
+        final backendValue = await SpellApiService.getBackCard(wordId);
+        if (backendValue != null) {
+          final trimmed = backendValue.trim();
+          if (trimmed.isNotEmpty && trimmed.toLowerCase() != 'none') {
+            backCard = trimmed;
+            card['back_card'] = backCard; // keep deck card in sync
+            setState(() {
+              _backCard = backCard;
+              _loadingBackCard = false;
+            });
+            return; // done, no AI needed
+          }
+        }
+      } catch (e) {
+        // Non-fatal; proceed to AI generation if needed
+        print('Backend back card fetch failed (will fallback to AI if empty): $e');
+      }
+
+      // If still empty, check if AI key is configured before generating
+      if (backCard == null || backCard.trim().isEmpty) {
+        final aiService = AIService();
+        final apiKey = await aiService.getAiApiKey();
+        
+        if (apiKey.isEmpty) {
+          // No API key set, skip AI generation
+          print('No AI API key configured, skipping back card generation');
+          setState(() {
+            _backCard = null;
+            _loadingBackCard = false;
+          });
+          return;
+        }
+        
+        // API key exists, generate with AI
+        final wordText = card['text'] as String;
+        final language = card['language'] as String? ?? 'en';
+        backCard = await aiService.generateBackCard(wordText, language);
+        // Display immediately
+        setState(() {
+          _backCard = backCard;
+          _loadingBackCard = false;
+        });
+        card['back_card'] = backCard;
+        // Save asynchronously
+        SpellApiService.updateBackCard(wordId, backCard).catchError((e) {
+          print('Error saving AI-generated back card: $e');
+        });
+      } else {
+        // Use deck-provided non-empty value (rare path if backend fetch failed but deck had it)
+        setState(() {
+          _backCard = backCard;
+          _loadingBackCard = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading back card: $e');
+      setState(() {
+        _backCard = 'Error generating back card. Please try again.';
+        _loadingBackCard = false;
+      });
+    }
   }
 
   Future<void> _rate(int quality) async {
     if (_cards.isEmpty) return;
     final card = _cards[_index];
     if (_index + 1 < _cards.length) {
-      setState(() { _index++; _revealed = false; });
+      setState(() { 
+        _index++; 
+        _revealed = false; 
+        _backCard = null;
+        _loadingBackCard = false;
+      });
     } else {
       // Only submit review after last card
       try {
@@ -232,20 +330,63 @@ class _StudyPageState extends State<StudyPage> {
             const SizedBox(height: 12),
             Expanded(
               child: Center(
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.black12),
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      card['text'] ?? '',
-                      style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
+                child: Row(
+                  children: [
+                    // Word container
+                    Expanded(
+                      flex: _backCard != null && _backCard!.isNotEmpty ? 1 : 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.black12),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            card['text'] ?? '',
+                            style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    // Back card container
+                    if (_revealed) ...[
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 1,
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue.shade200),
+                            color: Colors.blue.shade50,
+                          ),
+                          child: _loadingBackCard
+                              ? const Center(child: CircularProgressIndicator())
+                              : (_backCard != null && _backCard!.isNotEmpty)
+                                  ? SingleChildScrollView(
+                                      child: Text(
+                                        _backCard!,
+                                        style: const TextStyle(fontSize: 14),
+                                        textAlign: TextAlign.left,
+                                      ),
+                                    )
+                                  : const Center(
+                                      child: Text(
+                                        'No back card available',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),

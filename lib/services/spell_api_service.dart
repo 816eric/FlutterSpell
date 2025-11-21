@@ -8,8 +8,8 @@ class SpellApiService {
   // --- All static methods must be inside this class body ---
   
   //static final String baseUrl = "https://spellbackend.onrender.com/";
-  //static final String baseUrl = "http://127.0.0.1:8000/";
-  static final String baseUrl = "https://spellbackend.fly.dev/";
+  static final String baseUrl = "http://127.0.0.1:8000/";
+  //static final String baseUrl = "https://spellbackend.fly.dev/";
 
   //create the static methond below this line
 
@@ -437,5 +437,34 @@ class SpellApiService {
         throw Exception('Failed to update user settings');
       }
     }
+
+  // ===== Back Card =====
+
+  // Update back card for a word
+  static Future<void> updateBackCard(int wordId, String backCard) async {
+    final response = await http.put(
+      Uri.parse('${SpellApiService.baseUrl}words/$wordId/back-card'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'back_card': backCard}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update back card');
+    }
+  }
+
+  // Get back card for a word
+  static Future<String?> getBackCard(int wordId) async {
+    final response = await http.get(
+      Uri.parse('${SpellApiService.baseUrl}words/$wordId/back-card'),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['back_card'] as String?;
+    } else {
+      throw Exception('Failed to get back card');
+    }
+  }
+
+
 
 }

@@ -720,4 +720,244 @@ class AIService {
     
     return words;
   }
+
+  /// Generate back card content using AI
+  /// Returns a string with explanation, similar words, and sample sentence
+  Future<String> generateBackCard(String word, String language) async {
+    final provider = await getAiProvider();
+    final model = await getAiModel();
+    final apiKey = await getAiApiKey();
+
+    if (apiKey.isEmpty) {
+      throw Exception('API key is not configured. Please set it in Settings.');
+    }
+
+    // Prepare prompt based on language
+    String prompt;
+    if (language == 'zh' || language == 'chinese') {
+      prompt = '为单词或短语\'$word\'生成学习卡片内容，包括：\n'
+          '1. 简短解释或定义\n'
+          '2. 2-3个相似词或相关词\n'
+          '3. 一个例句\n'
+          '请用简洁、适合学生学习的方式呈现，总长度控制在200字以内。';
+    } else {
+      prompt = 'Generate a learning card for the word or phrase \'$word\' with:\n'
+          '1. A brief explanation or definition\n'
+          '2. 2-3 similar words or related words\n'
+          '3. A sample sentence using the word\n'
+          'Keep it concise and student-friendly, under 200 words total.';
+    }
+
+    // Call appropriate provider
+    // Debug info
+    print('[AI BackCard] provider=$provider model=$model word="$word" language=$language');
+    print('[AI BackCard] prompt:\n$prompt');
+    switch (provider) {
+      case 'gemini':
+        return await _generateBackCardGemini(prompt, model, apiKey);
+      case 'openai':
+        return await _generateBackCardOpenAI(prompt, model, apiKey);
+      case 'deepseek':
+        return await _generateBackCardDeepSeek(prompt, model, apiKey);
+      case 'qianwen':
+        return await _generateBackCardQianwen(prompt, model, apiKey);
+      default:
+        throw Exception('Unsupported AI provider: $provider');
+    }
+  }
+
+  /// Generate back card using Google Gemini
+  Future<String> _generateBackCardGemini(String prompt, String model, String apiKey) async {
+    final url = Uri.parse(
+      'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey'
+    );
+
+    final requestBody = {
+      'contents': [
+        {
+          'parts': [
+            {'text': prompt}
+          ]
+        }
+      ],
+      'generationConfig': {
+        'temperature': 0.3,
+        'maxOutputTokens': 512,
+      }
+    };
+
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(requestBody),
+    );
+    print('[AI BackCard][gemini] status=${response.statusCode}');
+    if (response.body.isNotEmpty) {
+      print('[AI BackCard][gemini] raw response (truncated 500): ' + (response.body.length > 500 ? response.body.substring(0,500) : response.body));
+    }
+
+    if (response.statusCode != 200) {
+      throw Exception('Gemini API Error ${response.statusCode}: ${response.body}');
+    }
+
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final candidates = responseData['candidates'] as List?;
+    
+    if (candidates == null || candidates.isEmpty) {
+      throw Exception('No response from Gemini AI');
+    }
+
+    final content = candidates[0]['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List?;
+    
+    if (parts == null || parts.isEmpty) {
+      throw Exception('No content in Gemini response');
+    }
+
+    final text = parts[0]['text'] as String?;
+    if (text == null || text.isEmpty) {
+      throw Exception('Empty response from Gemini');
+    }
+
+    return text.trim();
+  }
+
+  /// Generate back card using OpenAI
+  Future<String> _generateBackCardOpenAI(String prompt, String model, String apiKey) async {
+    final url = Uri.parse('https://api.openai.com/v1/chat/completions');
+
+    final requestBody = {
+      'model': model,
+      'messages': [
+        {'role': 'user', 'content': prompt}
+      ],
+      'max_tokens': 512,
+      'temperature': 0.3
+    };
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode(requestBody),
+    );
+    print('[AI BackCard][openai] status=${response.statusCode}');
+    if (response.body.isNotEmpty) {
+      print('[AI BackCard][openai] raw response (truncated 500): ' + (response.body.length > 500 ? response.body.substring(0,500) : response.body));
+    }
+
+    if (response.statusCode != 200) {
+      throw Exception('OpenAI API Error ${response.statusCode}: ${response.body}');
+    }
+
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final choices = responseData['choices'] as List?;
+    
+    if (choices == null || choices.isEmpty) {
+      throw Exception('No response from OpenAI');
+    }
+
+    final content = choices[0]['message']['content'] as String?;
+    if (content == null || content.isEmpty) {
+      throw Exception('Empty response from OpenAI');
+    }
+
+    return content.trim();
+  }
+
+  /// Generate back card using DeepSeek
+  Future<String> _generateBackCardDeepSeek(String prompt, String model, String apiKey) async {
+    final url = Uri.parse('https://api.deepseek.com/v1/chat/completions');
+
+    final requestBody = {
+      'model': model,
+      'messages': [
+        {'role': 'user', 'content': prompt}
+      ],
+      'max_tokens': 512,
+      'temperature': 0.3
+    };
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode(requestBody),
+    );
+    print('[AI BackCard][deepseek] status=${response.statusCode}');
+    if (response.body.isNotEmpty) {
+      print('[AI BackCard][deepseek] raw response (truncated 500): ' + (response.body.length > 500 ? response.body.substring(0,500) : response.body));
+    }
+
+    if (response.statusCode != 200) {
+      throw Exception('DeepSeek API Error ${response.statusCode}: ${response.body}');
+    }
+
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final choices = responseData['choices'] as List?;
+    
+    if (choices == null || choices.isEmpty) {
+      throw Exception('No response from DeepSeek');
+    }
+
+    final content = choices[0]['message']['content'] as String?;
+    if (content == null || content.isEmpty) {
+      throw Exception('Empty response from DeepSeek');
+    }
+
+    return content.trim();
+  }
+
+  /// Generate back card using Qianwen
+  Future<String> _generateBackCardQianwen(String prompt, String model, String apiKey) async {
+    final url = Uri.parse('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation');
+
+    final requestBody = {
+      'model': model,
+      'input': {
+        'messages': [
+          {'role': 'user', 'content': prompt}
+        ]
+      },
+      'parameters': {
+        'max_tokens': 512,
+        'temperature': 0.3
+      }
+    };
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode(requestBody),
+    );
+    print('[AI BackCard][qianwen] status=${response.statusCode}');
+    if (response.body.isNotEmpty) {
+      print('[AI BackCard][qianwen] raw response (truncated 500): ' + (response.body.length > 500 ? response.body.substring(0,500) : response.body));
+    }
+
+    if (response.statusCode != 200) {
+      throw Exception('Qianwen API Error ${response.statusCode}: ${response.body}');
+    }
+
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final output = responseData['output'] as Map<String, dynamic>?;
+    
+    if (output == null) {
+      throw Exception('No output from Qianwen');
+    }
+
+    final text = output['text'] as String?;
+    if (text == null || text.isEmpty) {
+      throw Exception('Empty response from Qianwen');
+    }
+
+    return text.trim();
+  }
 }
