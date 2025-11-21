@@ -895,12 +895,14 @@ class AIService {
     final parts = content?['parts'] as List?;
     
     if (parts == null || parts.isEmpty) {
-      throw Exception('No content in Gemini response');
+      // Gracefully degrade on empty content (e.g., MAX_TOKENS) instead of throwing
+      return '';
     }
 
     final text = parts[0]['text'] as String?;
     if (text == null || text.isEmpty) {
-      throw Exception('Empty response from Gemini');
+      // Gracefully return empty when provider returns no text
+      return '';
     }
 
     return text.trim();
@@ -1043,5 +1045,34 @@ class AIService {
     }
 
     return text.trim();
+  }
+
+  /// Analyze study and quiz history using AI and return a readable report
+  /// The input should be a compact JSON text containing period, aggregates,
+  /// and a bounded list of records. The provider/model selection follows
+  /// current user settings; requires an API key.
+  Future<String> analyzeStudyHistory(String analysisPrompt) async {
+    final provider = await getAiProvider();
+    final model = await getAiModel();
+    final apiKey = await getAiApiKey();
+
+    if (apiKey.isEmpty) {
+      throw Exception('API key is not configured. Please set it in Settings.');
+    }
+
+    // The analysisPrompt should already contain structured instructions and
+    // JSON payload. We reuse the text-generation helpers used by back cards.
+    switch (provider) {
+      case 'gemini':
+        return await _generateBackCardGemini(analysisPrompt, model, apiKey);
+      case 'openai':
+        return await _generateBackCardOpenAI(analysisPrompt, model, apiKey);
+      case 'deepseek':
+        return await _generateBackCardDeepSeek(analysisPrompt, model, apiKey);
+      case 'qianwen':
+        return await _generateBackCardQianwen(analysisPrompt, model, apiKey);
+      default:
+        throw Exception('Unsupported AI provider: $provider');
+    }
   }
 }

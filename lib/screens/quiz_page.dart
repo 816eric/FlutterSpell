@@ -20,6 +20,9 @@ class _QuizPageState extends State<QuizPage> {
   int _score = 0;
   int? _selectedAnswer;
   bool _showAnswer = false;
+  
+  // Track quiz history records for current session
+  List<Map<String, dynamic>> _quizRecords = [];
 
   @override
   void initState() {
@@ -151,8 +154,15 @@ class _QuizPageState extends State<QuizPage> {
     
     final currentQuiz = _quizzes[_currentIndex];
     final correctAnswer = currentQuiz['correct'] as int;
+    final isCorrect = _selectedAnswer == correctAnswer;
     
-    if (_selectedAnswer == correctAnswer) {
+    // Record this quiz answer
+    _quizRecords.add({
+      'word': currentQuiz['word'] as String,
+      'is_correct': isCorrect,
+    });
+    
+    if (isCorrect) {
       setState(() { _score++; });
     }
     
@@ -181,7 +191,29 @@ class _QuizPageState extends State<QuizPage> {
     }
   }
 
-  void _showFinalScore() {
+  Future<void> _showFinalScore() async {
+    // Save quiz history before showing results
+    await _saveQuizHistory();
+    
+    // Award points based on score
+    int pointsEarned = 0;
+    if (widget.userName.isNotEmpty && widget.userName != 'Guest') {
+      // Calculate points: 1 point per correct answer
+      pointsEarned = _score;
+      if (pointsEarned > 0) {
+        try {
+          await SpellApiService.addPoints(
+            widget.userName,
+            pointsEarned,
+            'Quiz completed: $_score/${_quizzes.length} correct',
+          );
+        } catch (e) {
+          print('Failed to award points: $e');
+        }
+      }
+    }
+    
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -189,6 +221,7 @@ class _QuizPageState extends State<QuizPage> {
         content: Text(
           'Your score: $_score / ${_quizzes.length}\n'
           '${(_score / _quizzes.length * 100).toStringAsFixed(1)}%'
+          '${pointsEarned > 0 ? '\n\n🎉 Points Earned: $pointsEarned' : ''}'
         ),
         actions: [
           TextButton(
@@ -207,6 +240,20 @@ class _QuizPageState extends State<QuizPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _saveQuizHistory() async {
+    if (_quizRecords.isEmpty) return;
+    if (widget.userName.isEmpty || widget.userName == 'Guest') return;
+    
+    try {
+      await SpellApiService.saveQuizSession(widget.userName, _quizRecords);
+      print('Quiz history saved: ${_quizRecords.length} records');
+      _quizRecords.clear();
+    } catch (e) {
+      print('Failed to save quiz history: $e');
+      // Don't show error to user, just log it
+    }
   }
 
   Widget _buildStartScreen() {

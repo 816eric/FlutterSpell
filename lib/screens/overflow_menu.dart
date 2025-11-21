@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'settings.dart';
 import 'leaderboard_page.dart';
+import 'study_history_page.dart';
+import 'study_suggestion_page.dart';
 
 
 class OverflowMenu extends StatelessWidget {
@@ -25,6 +27,28 @@ class OverflowMenu extends StatelessWidget {
           title: const Text("Login History"),
           onTap: () {
             Navigator.of(context).pushNamed('/history', arguments: userName);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.book_outlined),
+          title: const Text("Study History"),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => StudyHistoryPage(userName: userName),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.lightbulb_outline),
+          title: const Text("Study Suggestions"),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => StudySuggestionPage(userName: userName),
+              ),
+            );
           },
         ),
         ListTile(

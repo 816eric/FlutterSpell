@@ -29,6 +29,9 @@ class _StudyPageState extends State<StudyPage> {
   bool _shouldShowLogin = false;
   String? _backCard;
   bool _loadingBackCard = false;
+  
+  // Track study history records for current session
+  List<Map<String, dynamic>> _studyRecords = [];
 
   @override
   void initState() {
@@ -41,6 +44,12 @@ class _StudyPageState extends State<StudyPage> {
     super.didChangeDependencies();
     final newUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
     final userChanged = newUserName != _effectiveUserName;
+    
+    // Save study history when user changes (tab switch/logout)
+    if (userChanged && _studyRecords.isNotEmpty) {
+      _saveStudyHistory();
+    }
+    
     _effectiveUserName = newUserName;
     if (_effectiveUserName.isEmpty || _effectiveUserName == 'Guest') {
       if (!_shouldShowLogin) {
@@ -224,6 +233,13 @@ class _StudyPageState extends State<StudyPage> {
   Future<void> _rate(int quality) async {
     if (_cards.isEmpty) return;
     final card = _cards[_index];
+    
+    // Record this study action
+    _studyRecords.add({
+      'word': card['text'] ?? '',
+      'difficulty': quality,
+    });
+    
     if (_index + 1 < _cards.length) {
       setState(() { 
         _index++; 
@@ -242,6 +258,10 @@ class _StudyPageState extends State<StudyPage> {
         );
         return;
       }
+      
+      // Save study history when session completes
+      await _saveStudyHistory();
+      
       setState(() { _revealed = false; });
       if (!mounted) return;
       showDialog(
@@ -257,6 +277,20 @@ class _StudyPageState extends State<StudyPage> {
           ],
         ),
       );
+    }
+  }
+
+  Future<void> _saveStudyHistory() async {
+    if (_studyRecords.isEmpty) return;
+    if (_effectiveUserName.isEmpty || _effectiveUserName == 'Guest') return;
+    
+    try {
+      await SpellApiService.saveStudySession(_effectiveUserName, _studyRecords);
+      print('Study history saved: ${_studyRecords.length} records');
+      _studyRecords.clear();
+    } catch (e) {
+      print('Failed to save study history: $e');
+      // Don't show error to user, just log it
     }
   }
 

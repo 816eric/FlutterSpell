@@ -105,6 +105,7 @@ class _HomePageState extends State<HomePage> {
       // Always use tag names for Dropdown
       final tagNames = userTags.map((e) => e['tag'] as String).toList();
       String? preselectTag = (latestTag != null && tagNames.contains(latestTag)) ? latestTag : (tagNames.isNotEmpty ? tagNames[0] : null);
+      if (!mounted) return;
       setState(() {
         _effectiveUserName = user;
         points = profile['total_points'] ?? 0;
@@ -112,9 +113,11 @@ class _HomePageState extends State<HomePage> {
         selectedTag = preselectTag;
         spellRepeatCount = spellRepeatCount;
       });
+      if (!mounted) return;
       if (tagNames.isEmpty) {
         // Show SnackBar and navigate to My Words page so user can add tags
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please add words/tags in My Words page.')),
           );
@@ -126,6 +129,7 @@ class _HomePageState extends State<HomePage> {
         fetchWords(preselectTag);
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _effectiveUserName = 'Guest';
         points = 0;
@@ -140,6 +144,7 @@ class _HomePageState extends State<HomePage> {
     // If user is Guest, fetch words as Admin
     final user = (_effectiveUserName == null || _effectiveUserName == 'Guest') ? 'admin' : _effectiveUserName!;
     final fetchedWords = await SpellApiService.getWords(user, tag);
+    if (!mounted) return;
     setState(() {
       words = fetchedWords;
       currentIndex = 0;

@@ -372,6 +372,19 @@ class SpellApiService {
       return json.decode(resp.body) as Map<String, dynamic>;
     }
 
+  static Future<Map<String, dynamic>> addPoints(String userName, int points, String reason) async {
+    final body = json.encode({'points': points, 'reason': reason});
+    final resp = await http.post(
+      Uri.parse('${SpellApiService.baseUrl}users/$userName/points/add'),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    if (resp.statusCode != 200) {
+      throw Exception('Add points failed: ${resp.statusCode}');
+    }
+    return json.decode(resp.body) as Map<String, dynamic>;
+  }
+
   static Future<Map<String, dynamic>> redeemPoints(String userName, String item, int points) async {
     final body = json.encode({'item': item, 'points': points});
     final resp = await http.post(
@@ -462,6 +475,90 @@ class SpellApiService {
       return data['back_card'] as String?;
     } else {
       throw Exception('Failed to get back card');
+    }
+  }
+
+  // ===== History Tracking =====
+
+  // Save study session (batch of records)
+  static Future<Map<String, dynamic>> saveStudySession(String userName, List<Map<String, dynamic>> records) async {
+    final response = await http.post(
+      Uri.parse('${SpellApiService.baseUrl}history/study-session'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_name': userName,
+        'records': records,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to save study session');
+    }
+  }
+
+  // Save quiz session (batch of records)
+  static Future<Map<String, dynamic>> saveQuizSession(String userName, List<Map<String, dynamic>> records) async {
+    final response = await http.post(
+      Uri.parse('${SpellApiService.baseUrl}history/quiz-session'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_name': userName,
+        'records': records,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to save quiz session');
+    }
+  }
+
+  // Get study history for a user
+  static Future<List<dynamic>> getStudyHistory(String userName, {int limit = 100}) async {
+    final response = await http.get(
+      Uri.parse('${SpellApiService.baseUrl}history/study/$userName?limit=$limit'),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to get study history');
+    }
+  }
+
+  // Get quiz history for a user
+  static Future<List<dynamic>> getQuizHistory(String userName, {int limit = 100}) async {
+    final response = await http.get(
+      Uri.parse('${SpellApiService.baseUrl}history/quiz/$userName?limit=$limit'),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to get quiz history');
+    }
+  }
+
+  // Clear all study history for a user
+  static Future<Map<String, dynamic>> clearStudyHistory(String userName) async {
+    final response = await http.delete(
+      Uri.parse('${SpellApiService.baseUrl}history/study/$userName'),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to clear study history');
+    }
+  }
+
+  // Clear all quiz history for a user
+  static Future<Map<String, dynamic>> clearQuizHistory(String userName) async {
+    final response = await http.delete(
+      Uri.parse('${SpellApiService.baseUrl}history/quiz/$userName'),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to clear quiz history');
     }
   }
 
