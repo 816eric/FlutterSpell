@@ -766,6 +766,90 @@ class AIService {
     }
   }
 
+  /// Generate quiz question for a word
+  /// Returns JSON string with question, options, and correct answer
+  Future<Map<String, dynamic>> generateQuiz(String word, String language) async {
+    final provider = await getAiProvider();
+    final model = await getAiModel();
+    final apiKey = await getAiApiKey();
+
+    if (apiKey.isEmpty) {
+      throw Exception('API key is not configured. Please set it in Settings.');
+    }
+
+    // Prepare prompt based on language
+    String prompt;
+    if (language == 'zh' || language == 'chinese') {
+      prompt = '为单词或短语\'$word\'生成一道选择题，格式如下JSON：\n'
+          '{\n'
+          '  "question": "问题描述",\n'
+          '  "options": ["选项A", "选项B", "选项C", "选项D"],\n'
+          '  "correct": 0\n'
+          '}\n'
+          '其中correct是正确答案的索引（0-3）。只返回JSON，不要其他文字。';
+    } else {
+      prompt = 'Generate a multiple choice quiz question for the word or phrase \'$word\' in this JSON format:\n'
+          '{\n'
+          '  "question": "Question text here",\n'
+          '  "options": ["Option A", "Option B", "Option C", "Option D"],\n'
+          '  "correct": 0\n'
+          '}\n'
+          'Where correct is the index (0-3) of the correct answer. Return ONLY valid JSON, no other text.';
+    }
+
+    print('[AI Quiz] provider=$provider model=$model word="$word" language=$language');
+    print('[AI Quiz] prompt:\n$prompt');
+
+    String response;
+    switch (provider) {
+      case 'gemini':
+        response = await _generateBackCardGemini(prompt, model, apiKey);
+        break;
+      case 'openai':
+        response = await _generateBackCardOpenAI(prompt, model, apiKey);
+        break;
+      case 'deepseek':
+        response = await _generateBackCardDeepSeek(prompt, model, apiKey);
+        break;
+      case 'qianwen':
+        response = await _generateBackCardQianwen(prompt, model, apiKey);
+        break;
+      default:
+        throw Exception('Unsupported AI provider: $provider');
+    }
+
+    // Parse JSON response
+    try {
+      // Clean up response - remove markdown code blocks if present
+      String cleanResponse = response.trim();
+      if (cleanResponse.startsWith('```json')) {
+        cleanResponse = cleanResponse.substring(7);
+      }
+      if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.substring(3);
+      }
+      if (cleanResponse.endsWith('```')) {
+        cleanResponse = cleanResponse.substring(0, cleanResponse.length - 3);
+      }
+      cleanResponse = cleanResponse.trim();
+      
+      final quiz = jsonDecode(cleanResponse) as Map<String, dynamic>;
+      
+      // Validate structure
+      if (!quiz.containsKey('question') || 
+          !quiz.containsKey('options') || 
+          !quiz.containsKey('correct')) {
+        throw Exception('Invalid quiz format from AI');
+      }
+      
+      return quiz;
+    } catch (e) {
+      print('[AI Quiz] Failed to parse response: $e');
+      print('[AI Quiz] Raw response: $response');
+      throw Exception('Failed to parse quiz from AI response: $e');
+    }
+  }
+
   /// Generate back card using Google Gemini
   Future<String> _generateBackCardGemini(String prompt, String model, String apiKey) async {
     final url = Uri.parse(
