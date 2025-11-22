@@ -22,7 +22,7 @@ class AIService {
   
   // Default values
   static const String _defaultProvider = 'gemini';
-  static const String _defaultModel = 'gemini-2.5-flash';
+  static const String _defaultModel = 'gemini-2.5-flash-lite';
 
   // Cached settings
   String? _cachedProvider;
@@ -85,7 +85,7 @@ class AIService {
   static String getDefaultModelForProvider(String provider) {
     switch (provider) {
       case 'gemini':
-        return 'gemini-2.5-flash';
+        return 'gemini-2.5-flash-lite';
       case 'openai':
         return 'gpt-4o-mini';
       case 'deepseek':
@@ -93,7 +93,7 @@ class AIService {
       case 'qianwen':
         return 'qwen-turbo';
       default:
-        return 'gemini-2.0-flash-exp';
+        return 'gemini-2.5-flash-lite';
     }
   }
 
@@ -102,11 +102,12 @@ class AIService {
     switch (provider) {
       case 'gemini':
         return [
+          'gemini-3.0-pro',
+          'gemini-2.5-pro',
           'gemini-2.5-flash',
-          'gemini-2.0-flash-exp',
-          'gemini-1.5-flash',
-          'gemini-1.5-pro',
-          'gemini-1.0-pro',
+          'gemini-2.5-flash-lite',
+          'gemini-2.0-flash',
+          'gemini-2.0-flash-lite',
         ];
       case 'openai':
         return [
@@ -732,20 +733,22 @@ class AIService {
       throw Exception('API key is not configured. Please set it in Settings.');
     }
 
-    // Prepare prompt based on language
+    // Prepare prompt based on language, include memorization tip first and plain text constraints
     String prompt;
     if (language == 'zh' || language == 'chinese') {
-      prompt = '为单词或短语\'$word\'生成学习卡片内容，包括：\n'
-          '1. 简短解释或定义\n'
-          '2. 2-3个相似词或相关词\n'
-          '3. 一个例句\n'
-          '请用简洁、适合学生学习的方式呈现，总长度控制在200字以内。';
+      prompt = '请为单词“$word”生成简洁的学习内容，并严格按以下四行输出：\n'
+          '1) 如何记忆：提供记忆技巧。\n'
+          '2) 解释：2-3句简短释义。\n'
+          '3) 相似词：给出2-3个相似或相关词，使用中文或英文，逗号分隔在同一行。\n'
+          '4) 例句：给出一个包含该词的例句。\n'
+          '输出要求：仅限纯文本，不使用任何Markdown或符号（如#、*、-、•、```等）；允许且只允许以下四个固定标题：“如何记忆：”“解释：”“相似词：”“例句：”。不要使用其他任何标签或标题。整体不超过1000字。';
     } else {
-      prompt = 'Generate a learning card for the word or phrase \'$word\' with:\n'
-          '1. A brief explanation or definition\n'
-          '2. 2-3 similar words or related words\n'
-          '3. A sample sentence using the word\n'
-          'Keep it concise and student-friendly, under 200 words total.';
+      prompt = 'Create concise study content for the word "$word" as exactly four lines:\n'
+          '1) How to memorize: tips to help remember how to spell the word.\n'
+          '2) Explanation: 2-3 sentences.\n'
+          '3) Similar words: 2-3 similar/related words on one line, comma-separated.\n'
+          '4) Example: one sample sentence using the word.\n'
+          'Return plain text only: no Markdown, no bullets or symbols (#, *, -, •, ```). Use only these four titles — "How to memorize:", "Explanation:", "Similar words:", and "Example:" — and no other labels or headings. Keep under 1000 words.';
     }
 
     // Call appropriate provider
@@ -754,16 +757,56 @@ class AIService {
     print('[AI BackCard] prompt:\n$prompt');
     switch (provider) {
       case 'gemini':
-        return await _generateBackCardGemini(prompt, model, apiKey);
+        {
+          final r = await _generateBackCardGemini(prompt, model, apiKey);
+          return _sanitizeBackCard(r, word);
+        }
       case 'openai':
-        return await _generateBackCardOpenAI(prompt, model, apiKey);
+        {
+          final r = await _generateBackCardOpenAI(prompt, model, apiKey);
+          return _sanitizeBackCard(r, word);
+        }
       case 'deepseek':
-        return await _generateBackCardDeepSeek(prompt, model, apiKey);
+        {
+          final r = await _generateBackCardDeepSeek(prompt, model, apiKey);
+          return _sanitizeBackCard(r, word);
+        }
       case 'qianwen':
-        return await _generateBackCardQianwen(prompt, model, apiKey);
+        {
+          final r = await _generateBackCardQianwen(prompt, model, apiKey);
+          return _sanitizeBackCard(r, word);
+        }
       default:
         throw Exception('Unsupported AI provider: $provider');
     }
+  }
+
+  String _sanitizeBackCard(String text, String word) {
+    if (text.isEmpty) return text;
+    String t = text;
+    // Remove code fences
+    t = t.replaceAll('```json', '');
+    t = t.replaceAll('```', '');
+    // Split lines and clean
+    final lines = t
+        .split(RegExp(r'[\r\n]+'))
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .map((l) {
+          // Drop markdown bullets and headings
+          l = l.replaceFirst(RegExp(r'^[#>*`\-\*•]+\s*'), '');
+          // Remove common headings like "Learning Card" or similar
+          if (RegExp(r'^(learning\s*card|card|词卡|学习卡)', caseSensitive: false).hasMatch(l)) {
+            return '';
+          }
+          return l;
+        })
+        .where((l) => l.isNotEmpty)
+        .toList();
+
+    // Join back to plain text
+    final cleaned = lines.join('\n');
+    return cleaned.trim();
   }
 
   /// Generate quiz question for a word
@@ -865,8 +908,16 @@ class AIService {
         }
       ],
       'generationConfig': {
-        'temperature': 0.3,
-        'maxOutputTokens': 512,
+        'temperature': 0.1,
+        'maxOutputTokens': 1024,
+        'responseMimeType': 'text/plain'
+      },
+      'systemInstruction': {
+        'parts': [
+          {
+            'text': 'You are a concise tutor. Provide only the final answer in plain text, exactly as instructed (four lines). Do not include any internal reasoning, preface, or extra commentary.'
+          }
+        ]
       }
     };
 
@@ -1060,19 +1111,180 @@ class AIService {
       throw Exception('API key is not configured. Please set it in Settings.');
     }
 
-    // The analysisPrompt should already contain structured instructions and
-    // JSON payload. We reuse the text-generation helpers used by back cards.
-    switch (provider) {
-      case 'gemini':
-        return await _generateBackCardGemini(analysisPrompt, model, apiKey);
-      case 'openai':
-        return await _generateBackCardOpenAI(analysisPrompt, model, apiKey);
-      case 'deepseek':
-        return await _generateBackCardDeepSeek(analysisPrompt, model, apiKey);
-      case 'qianwen':
-        return await _generateBackCardQianwen(analysisPrompt, model, apiKey);
-      default:
-        throw Exception('Unsupported AI provider: $provider');
+    print('[AI Analysis] provider=$provider model=$model');
+    print('[AI Analysis] prompt length=${analysisPrompt.length}');
+    // Printing full prompt to aid debugging; consider truncation if too large
+    print('[AI Analysis] prompt: ' + analysisPrompt);
+
+    // Primary attempt based on selected provider, with graceful fallback if empty.
+    String result = '';
+    try {
+      switch (provider) {
+        case 'gemini':
+          result = await _generateTextGemini(analysisPrompt, model, apiKey, maxTokens: 1500);
+          break;
+        case 'openai':
+          result = await _generateTextOpenAI(analysisPrompt, model, apiKey, maxTokens: 1500);
+          break;
+        case 'deepseek':
+          result = await _generateTextDeepSeek(analysisPrompt, model, apiKey, maxTokens: 1500);
+          break;
+        case 'qianwen':
+          result = await _generateTextQianwen(analysisPrompt, model, apiKey, maxTokens: 1500);
+          break;
+        default:
+          throw Exception('Unsupported AI provider: $provider');
+      }
+    } catch (e) {
+      print('[AI Analysis] primary attempt error: $e');
     }
+
+    if (result.trim().isEmpty) {
+      print('[AI Analysis] Empty or failed result from $provider/$model.');
+      print('[AI Analysis] Suggestion: Try a different provider or model in Settings, or reduce data period.');
+    }
+    return result;
+  }
+
+  // Generic long-form text generation (analysis/report) for providers
+  Future<String> _generateTextGemini(String prompt, String model, String apiKey, {int maxTokens = 1024}) async {
+    final url = Uri.parse(
+      'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey'
+    );
+    final requestBody = {
+      'contents': [
+        {
+          'parts': [ {'text': prompt} ]
+        }
+      ],
+      'generationConfig': {
+        'temperature': 0.2,
+        'maxOutputTokens': maxTokens,
+        'responseMimeType': 'text/plain'
+      },
+      'systemInstruction': {
+        'parts': [
+          { 'text': 'You are a direct assistant. Provide only the final markdown report without any internal reasoning, thinking steps, or analysis process. Be concise and actionable.' }
+        ]
+      }
+    };
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(requestBody),
+    );
+    print('[AI Analysis][gemini] status=${response.statusCode}');
+    if (response.body.isNotEmpty) {
+      final body = response.body;
+      print('[AI Analysis][gemini] raw response (truncated 2000): ' + (body.length > 2000 ? body.substring(0,2000) : body));
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Gemini API Error ${response.statusCode}: ${response.body}');
+    }
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final candidates = responseData['candidates'] as List?;
+    if (candidates == null || candidates.isEmpty) return '';
+    final content = candidates[0]['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List?;
+    if (parts == null || parts.isEmpty) return '';
+    final text = parts[0]['text'] as String?;
+    return (text ?? '').trim();
+  }
+
+  Future<String> _generateTextOpenAI(String prompt, String model, String apiKey, {int maxTokens = 1024}) async {
+    final url = Uri.parse('https://api.openai.com/v1/chat/completions');
+    final requestBody = {
+      'model': model,
+      'messages': [ {'role': 'user', 'content': prompt} ],
+      'max_tokens': maxTokens,
+      'temperature': 0.2,
+    };
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode(requestBody),
+    );
+    print('[AI Analysis][openai] status=${response.statusCode}');
+    if (response.body.isNotEmpty) {
+      final body = response.body;
+      print('[AI Analysis][openai] raw response (truncated 2000): ' + (body.length > 2000 ? body.substring(0,2000) : body));
+    }
+    if (response.statusCode != 200) {
+      throw Exception('OpenAI API Error ${response.statusCode}: ${response.body}');
+    }
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final choices = responseData['choices'] as List?;
+    if (choices == null || choices.isEmpty) return '';
+    final content = choices[0]['message']['content'] as String?;
+    return (content ?? '').trim();
+  }
+
+  Future<String> _generateTextDeepSeek(String prompt, String model, String apiKey, {int maxTokens = 1024}) async {
+    final url = Uri.parse('https://api.deepseek.com/v1/chat/completions');
+    final requestBody = {
+      'model': model,
+      'messages': [ {'role': 'user', 'content': prompt} ],
+      'max_tokens': maxTokens,
+      'temperature': 0.2,
+    };
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode(requestBody),
+    );
+    print('[AI Analysis][deepseek] status=${response.statusCode}');
+    if (response.body.isNotEmpty) {
+      final body = response.body;
+      print('[AI Analysis][deepseek] raw response (truncated 2000): ' + (body.length > 2000 ? body.substring(0,2000) : body));
+    }
+    if (response.statusCode != 200) {
+      throw Exception('DeepSeek API Error ${response.statusCode}: ${response.body}');
+    }
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final choices = responseData['choices'] as List?;
+    if (choices == null || choices.isEmpty) return '';
+    final content = choices[0]['message']['content'] as String?;
+    return (content ?? '').trim();
+  }
+
+  Future<String> _generateTextQianwen(String prompt, String model, String apiKey, {int maxTokens = 1024}) async {
+    final url = Uri.parse('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation');
+    final requestBody = {
+      'model': model,
+      'input': {
+        'messages': [ {'role': 'user', 'content': prompt} ]
+      },
+      'parameters': {
+        'max_tokens': maxTokens,
+        'temperature': 0.2
+      }
+    };
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode(requestBody),
+    );
+    print('[AI Analysis][qianwen] status=${response.statusCode}');
+    if (response.body.isNotEmpty) {
+      final body = response.body;
+      print('[AI Analysis][qianwen] raw response (truncated 2000): ' + (body.length > 2000 ? body.substring(0,2000) : body));
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Qianwen API Error ${response.statusCode}: ${response.body}');
+    }
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final output = responseData['output'] as Map<String, dynamic>?;
+    if (output == null) return '';
+    final text = output['text'] as String?;
+    return (text ?? '').trim();
   }
 }

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/spell_api_service.dart';
 import '../services/ai_service.dart';
@@ -151,49 +150,80 @@ class _StudySuggestionPageState extends State<StudySuggestionPage> {
   }
 
   String _buildAiPrompt(List<dynamic> records) {
-    // Bound the records sent to AI to keep tokens safe
-    const cap = 600; // send at most 600 recent records
-    final limited = records.take(cap).toList();
-
+    // New compact line-based format to reduce tokens.
+    // We provide a short summary section + line entries.
+    const cap = 60; // cap total lines sent (study+quiz) - reduced to minimize thinking tokens
     final aggregates = _buildAggregates(records);
+    final summary = aggregates['summary'] as Map<String, dynamic>;
 
-    final payload = {
-      'period': _selectedPeriod,
-      'user': widget.userName,
-      'record_count': records.length,
-      'aggregates': aggregates,
-      'records': limited.map((r) {
-        return {
-          'type': r['type'],
-          'word': r['word'],
-          'difficulty': r['type']=='study' ? r['difficulty'] : null,
-          'is_correct': r['type']=='quiz' ? r['is_correct'] : null,
-          'datetime': r['studied_at'] ?? r['completed_at'],
-        };
-      }).toList(),
-      'note': records.length > cap ? 'truncated_to_first_${cap}_records' : 'full',
-    };
+    // Build top lists (already limited in _buildAggregates)
+    final topAgain = (aggregates['top_again_words'] as List<dynamic>)
+        .map((e) => '${e['word']}:${e['again']}')
+        .join(', ');
+    final topMissed = (aggregates['top_quiz_missed'] as List<dynamic>)
+        .map((e) => '${e['word']}:${e['missed']}')
+        .join(', ');
 
-    final jsonPayload = const JsonEncoder.withIndent('  ').convert(payload);
+    // Map difficulty integers to labels for clarity
+    String diffLabel(int? d) {
+      switch (d) {
+        case 0: return 'again';
+        case 1: return 'hard';
+        case 3: return 'good';
+        case 5: return 'easy';
+        default: return 'unk';
+      }
+    }
 
-    final prompt = '''You are a supportive learning coach. Analyze the user's study (spaced repetition difficulties) and quiz history, then produce:
-- A brief progress report for the selected period.
-- Strengths and weaknesses (skill patterns, types of errors).
-- Top focus words/concepts to review.
-- A concrete study plan for next period (daily/weekly targets, techniques, timing).
-- 3-5 actionable tips to improve retention and test accuracy.
+    // Build line list
+    final lines = <String>[];
+    for (final r in records) {
+      if (lines.length >= cap) break;
+      if (r['type'] == 'study') {
+        lines.add('study ${r['word']} ${diffLabel(r['difficulty'])}');
+      } else if (r['type'] == 'quiz') {
+        lines.add('quiz ${r['word']} ${r['is_correct'] == true ? 'correct' : 'incorrect'}');
+      }
+    }
+    final truncated = records.length > cap;
+
+    final payloadText = [
+      'PERIOD: ${_selectedPeriod}',
+      'USER: ${widget.userName}',
+      'TOTAL_STUDY: ${summary['total_study']}',
+      'TOTAL_QUIZ: ${summary['total_quiz']}',
+      'STUDY_DIFFICULTY_COUNTS again:${summary['again']} hard:${summary['hard']} good:${summary['good']} easy:${summary['easy']}',
+      'QUIZ_CORRECT: ${summary['quiz_correct']} QUIZ_INCORRECT: ${summary['quiz_incorrect']} ACCURACY_PERCENT: ${summary['quiz_accuracy_percent']}',
+      if (topAgain.isNotEmpty) 'TOP_AGAIN_WORDS: $topAgain',
+      if (topMissed.isNotEmpty) 'TOP_MISSED_WORDS: $topMissed',
+      'RECORD_LINES (format: study <word> <difficulty> / quiz <word> <correct|incorrect>):',
+      ...lines,
+      if (truncated) 'NOTE: truncated to first $cap lines',
+    ].join('\n');
+
+    // Debug print of raw compact payload
+    print('[StudySuggestion] compact payload length=${payloadText.length}');
+    print('[StudySuggestion] compact payload:\n$payloadText');
+
+    final prompt = '''You are a supportive learning coach. Analyze the user's learning performance for the selected PERIOD using the compact data below.
+Provide:
+1. Brief progress summary.
+2. Strengths & weaknesses (patterns in difficulties and quiz mistakes).
+3. Top focus words or concepts to revisit (ground in data lines).
+4. Concrete next-period study plan (targets, techniques, scheduling).
+5. 3-5 actionable retention & accuracy tips.
 
 Constraints:
-- Be concise and student-friendly.
-- Use bullet points where helpful.
-- If data is sparse, state limitations and give general advice.
+- Be concise (<=500 words) and student-friendly.
+- Use bullet points where natural.
+- If data sparse, state limitations and offer general advice.
+- Do NOT invent words not shown. Base insights on provided lines.
 
-Here is the JSON data to analyze:
-```json
-$jsonPayload
-```
-Return the final answer as readable markdown.
-''';
+DATA START\n$payloadText\nDATA END
+
+Return only the final report in markdown (no JSON, no raw echo).''';
+
+    print('[StudySuggestion] prompt length=${prompt.length}');
     return prompt;
   }
 
@@ -207,6 +237,9 @@ Return the final answer as readable markdown.
       }
       final prompt = _buildAiPrompt(_filtered);
       final result = await ai.analyzeStudyHistory(prompt);
+      // Debug: print final result
+      print('[StudySuggestion] AI result length=${result.length}');
+      print('[StudySuggestion] AI result: ' + result);
       if (!mounted) return;
       setState(() { _aiResult = result; });
     } catch (e) {

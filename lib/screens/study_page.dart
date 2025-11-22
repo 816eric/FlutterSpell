@@ -29,6 +29,7 @@ class _StudyPageState extends State<StudyPage> {
   bool _shouldShowLogin = false;
   String? _backCard;
   bool _loadingBackCard = false;
+  bool _hasAiKey = false;
   
   // Track study history records for current session
   List<Map<String, dynamic>> _studyRecords = [];
@@ -37,6 +38,21 @@ class _StudyPageState extends State<StudyPage> {
   void initState() {
     super.initState();
     // Don't load deck here, wait for didChangeDependencies to get latest userName
+    _checkAiKey();
+  }
+
+  Future<void> _checkAiKey() async {
+    try {
+      final aiService = AIService();
+      final key = await aiService.getAiApiKey();
+      if (mounted) {
+        setState(() { _hasAiKey = key.isNotEmpty; });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() { _hasAiKey = false; });
+      }
+    }
   }
 
   @override
@@ -47,7 +63,22 @@ class _StudyPageState extends State<StudyPage> {
     
     // Save study history when user changes (tab switch/logout)
     if (userChanged && _studyRecords.isNotEmpty) {
-      _saveStudyHistory();
+      final studiedCount = _studyRecords.length;
+      final displayPoints = studiedCount > 0 ? ((studiedCount ~/ 5) > 0 ? (studiedCount ~/ 5) : 1) : 0;
+      // Save asynchronously and then show a dialog with points feedback
+      Future.microtask(() async {
+        await _saveStudyHistory();
+        if (!mounted) return;
+        if (displayPoints > 0) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Session Saved'),
+              content: Text('You earned +$displayPoints point${displayPoints == 1 ? '' : 's'} for studying $studiedCount word${studiedCount == 1 ? '' : 's'}.')
+            ),
+          );
+        }
+      });
     }
     
     _effectiveUserName = newUserName;
@@ -165,6 +196,10 @@ class _StudyPageState extends State<StudyPage> {
       String? backCard = card['back_card'] as String?; // deck-provided (may be stale)
       _loadingBackCard = true;
 
+      // If the front text is a sentence, do not generate back card with AI
+      final wordText = (card['text'] as String?)?.trim() ?? '';
+      final isSentence = _isSentence(wordText);
+
       // Fetch authoritative value from backend
       try {
         final backendValue = await SpellApiService.getBackCard(wordId);
@@ -185,8 +220,8 @@ class _StudyPageState extends State<StudyPage> {
         print('Backend back card fetch failed (will fallback to AI if empty): $e');
       }
 
-      // If still empty, check if AI key is configured before generating
-      if (backCard == null || backCard.trim().isEmpty) {
+      // If still empty, optionally generate with AI (skip if it's a sentence)
+      if ((backCard == null || backCard.trim().isEmpty) && !isSentence) {
         final aiService = AIService();
         final apiKey = await aiService.getAiApiKey();
         
@@ -201,7 +236,6 @@ class _StudyPageState extends State<StudyPage> {
         }
         
         // API key exists, generate with AI
-        final wordText = card['text'] as String;
         final language = card['language'] as String? ?? 'en';
         backCard = await aiService.generateBackCard(wordText, language);
         // Display immediately
@@ -213,6 +247,12 @@ class _StudyPageState extends State<StudyPage> {
         // Save asynchronously
         SpellApiService.updateBackCard(wordId, backCard).catchError((e) {
           print('Error saving AI-generated back card: $e');
+        });
+      } else if (isSentence) {
+        // Do not attempt AI generation for sentences
+        setState(() {
+          _backCard = null;
+          _loadingBackCard = false;
         });
       } else {
         // Use deck-provided non-empty value (rare path if backend fetch failed but deck had it)
@@ -227,6 +267,62 @@ class _StudyPageState extends State<StudyPage> {
         _backCard = 'Error generating back card. Please try again.';
         _loadingBackCard = false;
       });
+    }
+  }
+
+  bool _isSentence(String text) {
+    if (text.isEmpty) return false;
+    final words = text.trim().split(RegExp(r'\s+'));
+    if (words.length >= 5) return true;
+    final t = text.trim();
+    return t.contains(' ') && (t.endsWith('.') || t.endsWith('!') || t.endsWith('?'));
+  }
+
+  Future<void> _generateBackCardNow() async {
+    if (_cards.isEmpty) return;
+    final card = _cards[_index];
+    final wordText = (card['text'] as String?)?.trim() ?? '';
+    if (_isSentence(wordText)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Back card is skipped for sentences.')),
+      );
+      return;
+    }
+    try {
+      setState(() { _loadingBackCard = true; });
+      final aiService = AIService();
+      final apiKey = await aiService.getAiApiKey();
+      if (apiKey.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AI API key not configured in Settings.')),
+        );
+        setState(() { _loadingBackCard = false; });
+        return;
+      }
+      final language = card['language'] as String? ?? 'en';
+      final generated = await aiService.generateBackCard(wordText, language);
+      final wordId = card['word_id'] as int;
+      setState(() {
+        _backCard = generated;
+        card['back_card'] = generated;
+        _loadingBackCard = false;
+      });
+      // Persist
+      SpellApiService.updateBackCard(wordId, generated).catchError((e) {
+        print('Error saving regenerated back card: $e');
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Back card updated.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loadingBackCard = false; });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to generate back card: $e')),
+      );
     }
   }
 
@@ -259,16 +355,23 @@ class _StudyPageState extends State<StudyPage> {
         return;
       }
       
+      // Calculate points to display (awarded in _saveStudyHistory)
+      final studiedCount = _studyRecords.length;
+      final displayPoints = studiedCount > 0 ? ((studiedCount ~/ 5) > 0 ? (studiedCount ~/ 5) : 1) : 0;
+
       // Save study history when session completes
       await _saveStudyHistory();
       
       setState(() { _revealed = false; });
       if (!mounted) return;
+      final dialogMessage = displayPoints > 0
+          ? 'Great job. You earned +$displayPoints point${displayPoints == 1 ? '' : 's'} for studying $studiedCount word${studiedCount == 1 ? '' : 's'}.\n\nCome back tomorrow for more.'
+          : 'Great job. Come back tomorrow for more.';
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('All done for today!'),
-          content: const Text('Great job. Come back tomorrow for more.'),
+          content: Text(dialogMessage),
           actions: [
             TextButton(
               onPressed: () { Navigator.of(context).pop(); },
@@ -285,8 +388,31 @@ class _StudyPageState extends State<StudyPage> {
     if (_effectiveUserName.isEmpty || _effectiveUserName == 'Guest') return;
     
     try {
+      final studiedCount = _studyRecords.length;
       await SpellApiService.saveStudySession(_effectiveUserName, _studyRecords);
       print('Study history saved: ${_studyRecords.length} records');
+      // Award points: 1 point per 5 words, minimum 1 point if studiedCount > 0
+      if (studiedCount > 0) {
+        final points = (studiedCount ~/ 5) > 0 ? (studiedCount ~/ 5) : 1;
+        try {
+          await SpellApiService.addPoints(
+            _effectiveUserName,
+            points,
+            'Study session: $studiedCount words',
+          );
+          print('Awarded $points point(s) for studying $studiedCount words');
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🎉 +$points point${points == 1 ? '' : 's'} earned for studying $studiedCount word${studiedCount == 1 ? '' : 's'}'),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        } catch (e) {
+          print('Failed to award study points: $e');
+        }
+      }
       _studyRecords.clear();
     } catch (e) {
       print('Failed to save study history: $e');
@@ -351,6 +477,13 @@ class _StudyPageState extends State<StudyPage> {
       appBar: AppBar(
         title: const Text('Study'),
         actions: [
+          // Show generate back card only after user has pressed play (revealed)
+          if (_hasAiKey && _revealed && !_isSentence((card['text'] as String?)?.trim() ?? ''))
+            IconButton(
+              tooltip: 'Generate back card',
+              icon: const Icon(Icons.auto_fix_high),
+              onPressed: _generateBackCardNow,
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Center(child: Text(progress)),
@@ -401,11 +534,7 @@ class _StudyPageState extends State<StudyPage> {
                               ? const Center(child: CircularProgressIndicator())
                               : (_backCard != null && _backCard!.isNotEmpty)
                                   ? SingleChildScrollView(
-                                      child: Text(
-                                        _backCard!,
-                                        style: const TextStyle(fontSize: 14),
-                                        textAlign: TextAlign.left,
-                                      ),
+                                      child: _buildBackCardContent(_backCard!),
                                     )
                                   : const Center(
                                       child: Text(
@@ -471,4 +600,96 @@ class _StudyPageState extends State<StudyPage> {
       ),
     );
   }
+
+  // Build formatted back card with bold titles and spacing between sections.
+  Widget _buildBackCardContent(String text) {
+    final lines = text.split(RegExp(r'[\r\n]+'));
+    final sections = <_BackSection>[];
+    bool hasAnyLabel = false;
+
+    for (final raw in lines) {
+      final l = raw.trim();
+      if (l.isEmpty) continue;
+      final extracted = _extractLabeledLine(l);
+      if (extracted != null) {
+        hasAnyLabel = true;
+        sections.add(extracted);
+      } else {
+        sections.add(_BackSection(label: null, content: l));
+      }
+    }
+
+    if (!hasAnyLabel) {
+      // Fallback: show plain text
+      return Text(text, style: const TextStyle(fontSize: 14), textAlign: TextAlign.left);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < sections.length; i++) ...[
+          _buildSectionRow(sections[i]),
+          if (i != sections.length - 1) const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSectionRow(_BackSection s) {
+    if (s.label == null) {
+      return Text(s.content, style: const TextStyle(fontSize: 14));
+    }
+    return RichText(
+      text: TextSpan(
+        style: DefaultTextStyle.of(context).style.copyWith(fontSize: 14),
+        children: [
+          TextSpan(text: s.label!, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const TextSpan(text: ' '),
+          TextSpan(text: s.content),
+        ],
+      ),
+    );
+  }
+
+  _BackSection? _extractLabeledLine(String line) {
+    // Find first colon (English ':' or Chinese '：')
+    final idx = line.indexOf(':');
+    final idxCn = line.indexOf('：');
+    int cut = -1;
+    if (idx >= 0 && idxCn >= 0) {
+      cut = idx < idxCn ? idx : idxCn;
+    } else if (idx >= 0) {
+      cut = idx;
+    } else if (idxCn >= 0) {
+      cut = idxCn;
+    }
+    if (cut <= 0) return null;
+
+    final labelWithColon = line.substring(0, cut + 1).trim();
+    final content = line.substring(cut + 1).trim();
+    final labelLower = labelWithColon.toLowerCase();
+
+    // Known English labels (case-insensitive) and Chinese labels (exact)
+    const knownCn = ['如何记忆：', '解释：', '相似词：', '例句：'];
+    final isKnownCn = knownCn.contains(labelWithColon);
+    final isKnownEn = [
+      'how to memorize:',
+      'explanation:',
+      'similar words:',
+      'example:',
+      'memorization tip:', // legacy fallback
+    ].contains(labelLower);
+
+    if (!isKnownCn && !isKnownEn) return null;
+    // Normalize legacy label to preferred phrasing
+    final normalized = labelLower == 'memorization tip:' ? 'How to memorize:' : labelWithColon;
+    return _BackSection(label: normalized, content: content);
+  }
+
+}
+
+class _BackSection {
+  final String? label;
+  final String content;
+  _BackSection({required this.label, required this.content});
 }
