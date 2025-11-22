@@ -8,8 +8,8 @@ class SpellApiService {
   // --- All static methods must be inside this class body ---
   
   //static final String baseUrl = "https://spellbackend.onrender.com/";
-  static final String baseUrl = "http://127.0.0.1:8000/";
-  //static final String baseUrl = "https://spellbackend.fly.dev/";
+  //static final String baseUrl = "http://127.0.0.1:8000/";
+  static final String baseUrl = "https://spellbackend.fly.dev/";
 
   //create the static methond below this line
 
@@ -475,6 +475,37 @@ class SpellApiService {
       return data['back_card'] as String?;
     } else {
       throw Exception('Failed to get back card');
+    }
+  }
+
+  // ===== Quiz =====
+
+  // Update quiz for a word
+  static Future<void> updateQuiz(int wordId, Map<String, dynamic> quiz) async {
+    final response = await http.put(
+      Uri.parse('${SpellApiService.baseUrl}words/$wordId/quiz'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'quiz': jsonEncode(quiz)}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update quiz');
+    }
+  }
+
+  // Get quiz for a word
+  static Future<Map<String, dynamic>?> getQuiz(int wordId) async {
+    final response = await http.get(
+      Uri.parse('${SpellApiService.baseUrl}words/$wordId/quiz'),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final quizStr = data['quiz'] as String?;
+      if (quizStr == null || quizStr.isEmpty || quizStr.toLowerCase() == 'none') {
+        return null;
+      }
+      return jsonDecode(quizStr) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to get quiz');
     }
   }
 

@@ -20,6 +20,7 @@ class _QuizPageState extends State<QuizPage> {
   int _score = 0;
   int? _selectedAnswer;
   bool _showAnswer = false;
+  bool _regeneratingQuiz = false;
   
   // Track quiz history records for current session
   List<Map<String, dynamic>> _quizRecords = [];
@@ -27,10 +28,10 @@ class _QuizPageState extends State<QuizPage> {
   @override
   void initState() {
     super.initState();
-    _loadWords();
+    _loadWordsAndQuizzes();
   }
 
-  Future<void> _loadWords() async {
+  Future<void> _loadWordsAndQuizzes() async {
     setState(() { _loading = true; _errorMessage = null; });
     
     final effectiveUserName = (widget.userName.isEmpty || widget.userName == 'Guest') 
@@ -75,8 +76,11 @@ class _QuizPageState extends State<QuizPage> {
 
       setState(() {
         _words = words;
-        _loading = false;
       });
+      
+      // Automatically generate quizzes after loading words
+      await _generateQuizzes();
+      
     } catch (e) {
       setState(() {
         _loading = false;
@@ -96,6 +100,7 @@ class _QuizPageState extends State<QuizPage> {
       if (apiKey.isEmpty) {
         setState(() {
           _generatingQuiz = false;
+          _loading = false;
           _errorMessage = 'API key is not configured. Please go to Settings page and set your AI API key.';
         });
         return;
@@ -105,12 +110,36 @@ class _QuizPageState extends State<QuizPage> {
       
       for (var word in _words) {
         try {
-          final quiz = await aiService.generateQuiz(
-            word['text'] as String,
-            word['language'] as String? ?? 'en'
-          );
+          final wordId = word['id'] as int;
+          final wordText = word['text'] as String;
+          final language = word['language'] as String? ?? 'en';
+          
+          // Try to fetch quiz from backend first
+          Map<String, dynamic>? quiz;
+          try {
+            quiz = await SpellApiService.getQuiz(wordId);
+          } catch (e) {
+            print('Failed to fetch quiz from backend for $wordText: $e');
+          }
+          
+          // If quiz is empty or null, generate with AI
+          if (quiz == null || quiz.isEmpty) {
+            print('Generating quiz for $wordText with AI');
+            quiz = await aiService.generateQuiz(wordText, language);
+            // Save to backend
+            try {
+              await SpellApiService.updateQuiz(wordId, quiz);
+              print('Saved quiz for $wordText to backend');
+            } catch (e) {
+              print('Failed to save quiz to backend: $e');
+            }
+          } else {
+            print('Using existing quiz for $wordText from backend');
+          }
+          
           quizzes.add({
-            'word': word['text'],
+            'word_id': wordId,
+            'word': wordText,
             ...quiz,
           });
         } catch (e) {
@@ -121,6 +150,7 @@ class _QuizPageState extends State<QuizPage> {
       if (quizzes.isEmpty) {
         setState(() {
           _generatingQuiz = false;
+          _loading = false;
           _errorMessage = 'Failed to generate any quizzes. Please try again.';
         });
         return;
@@ -133,10 +163,12 @@ class _QuizPageState extends State<QuizPage> {
         _selectedAnswer = null;
         _showAnswer = false;
         _generatingQuiz = false;
+        _loading = false;
       });
     } catch (e) {
       setState(() {
         _generatingQuiz = false;
+        _loading = false;
         _errorMessage = 'Error generating quizzes: $e';
       });
     }
@@ -188,6 +220,60 @@ class _QuizPageState extends State<QuizPage> {
         _selectedAnswer = null;
         _showAnswer = false;
       });
+    }
+  }
+
+  Future<void> _regenerateCurrentQuiz() async {
+    if (_quizzes.isEmpty) return;
+    
+    setState(() { _regeneratingQuiz = true; });
+    
+    try {
+      final aiService = AIService();
+      final apiKey = await aiService.getAiApiKey();
+      
+      if (apiKey.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AI API key not configured in Settings.')),
+        );
+        setState(() { _regeneratingQuiz = false; });
+        return;
+      }
+      
+      final currentQuiz = _quizzes[_currentIndex];
+      final wordId = currentQuiz['word_id'] as int;
+      final wordText = currentQuiz['word'] as String;
+      final language = 'english'; // Default to english, can be enhanced later
+      
+      // Generate new quiz with AI
+      final newQuiz = await aiService.generateQuiz(wordText, language);
+      
+      // Save to backend
+      await SpellApiService.updateQuiz(wordId, newQuiz);
+      
+      // Update current quiz in list
+      setState(() {
+        _quizzes[_currentIndex] = {
+          'word_id': wordId,
+          'word': wordText,
+          ...newQuiz,
+        };
+        _selectedAnswer = null;
+        _showAnswer = false;
+        _regeneratingQuiz = false;
+      });
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Quiz regenerated successfully.')),
+      );
+    } catch (e) {
+      setState(() { _regeneratingQuiz = false; });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to regenerate quiz: $e')),
+      );
     }
   }
 
@@ -289,7 +375,7 @@ class _QuizPageState extends State<QuizPage> {
                 )
               else
                 ElevatedButton.icon(
-                  onPressed: _loadWords,
+                  onPressed: _loadWordsAndQuizzes,
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry'),
                 ),
@@ -299,38 +385,18 @@ class _QuizPageState extends State<QuizPage> {
       );
     }
 
+    // Show loading indicator while generating quizzes
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.quiz, size: 80, color: Colors.blue),
+            const CircularProgressIndicator(),
             const SizedBox(height: 24),
             Text(
-              '${_words.length} words available',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Generate AI quizzes to test your vocabulary!',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _generatingQuiz ? null : _generateQuizzes,
-              icon: _generatingQuiz
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome),
-              label: Text(_generatingQuiz ? 'Generating...' : 'Generate Quiz'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
+              _generatingQuiz ? 'Generating quizzes...' : 'Loading...',
+              style: const TextStyle(fontSize: 16),
             ),
           ],
         ),
@@ -527,6 +593,12 @@ class _QuizPageState extends State<QuizPage> {
       appBar: AppBar(
         title: const Text('Quiz'),
         actions: [
+          if (_quizzes.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.auto_fix_high),
+              tooltip: 'Regenerate this quiz',
+              onPressed: _regeneratingQuiz ? null : _regenerateCurrentQuiz,
+            ),
           if (_quizzes.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.close),
