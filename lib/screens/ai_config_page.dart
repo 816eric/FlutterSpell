@@ -14,6 +14,10 @@ class _AIConfigPageState extends State<AIConfigPage> {
   String _aiApiKey = '';
   final _aiApiKeyController = TextEditingController();
   bool _isLoading = true;
+  
+  // Prompt templates
+  final _promptEnglishController = TextEditingController();
+  final _promptChineseController = TextEditingController();
 
   @override
   void initState() {
@@ -24,6 +28,8 @@ class _AIConfigPageState extends State<AIConfigPage> {
   @override
   void dispose() {
     _aiApiKeyController.dispose();
+    _promptEnglishController.dispose();
+    _promptChineseController.dispose();
     super.dispose();
   }
 
@@ -34,12 +40,21 @@ class _AIConfigPageState extends State<AIConfigPage> {
       final provider = await aiService.getAiProvider();
       final model = await aiService.getAiModel();
       final apiKey = await aiService.getAiApiKey();
+      
+      // Load prompts (these already return defaults if custom is empty)
+      final englishPrompt = await aiService.getEnglishPrompt();
+      final chinesePrompt = await aiService.getChinesePrompt();
 
       setState(() {
         _aiProvider = provider;
         _aiModel = model;
         _aiApiKey = apiKey;
         _aiApiKeyController.text = apiKey;
+        
+        // Pre-fill fields with prompts (either custom or default)
+        _promptEnglishController.text = englishPrompt;
+        _promptChineseController.text = chinesePrompt;
+        
         _isLoading = false;
       });
     } catch (e) {
@@ -93,6 +108,20 @@ class _AIConfigPageState extends State<AIConfigPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('API key saved successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  Future<void> _savePrompts() async {
+    final aiService = AIService();
+    await aiService.setEnglishPrompt(_promptEnglishController.text);
+    await aiService.setChinesePrompt(_promptChineseController.text);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Prompts saved successfully'),
           backgroundColor: Colors.green,
         ),
       );
@@ -336,6 +365,64 @@ class _AIConfigPageState extends State<AIConfigPage> {
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Prompt Templates Section
+                  const Text(
+                    'Prompt Templates',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Customize AI prompts for back-card generation. Use \$WORD as placeholder for the word.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // English Prompt
+                  const Text(
+                    'English Prompt (no pinyin for English words)',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _promptEnglishController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 8,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Chinese Prompt
+                  const Text(
+                    'Chinese Prompt (中文提示词 - includes pinyin)',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _promptChineseController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 8,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _savePrompts,
+                      icon: const Icon(Icons.save),
+                      label: const Text('Save Prompts'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),

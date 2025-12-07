@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
@@ -72,6 +72,51 @@ class AIService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyAiApiKey, apiKey);
     _cachedApiKey = apiKey;
+  }
+
+  // Custom prompt keys
+  static const String _keyPromptEnglish = 'ai_prompt_english';
+  static const String _keyPromptChinese = 'ai_prompt_chinese';
+
+  /// Get English prompt (returns custom or default)
+  Future<String> getEnglishPrompt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final custom = prefs.getString(_keyPromptEnglish) ?? '';
+    if (custom.trim().isNotEmpty) return custom;
+    // Default English prompt (no pinyin for English words)
+    return 'Create concise study content for the word "\$WORD" as exactly four lines:\n'
+        '1) How to memorize: tips to help remember how to spell the word.\n'
+        '2) Explanation: 2-3 sentences.\n'
+        '3) Similar words: 2-3 similar/related words on one line, comma-separated.\n'
+        '4) Example: one sample sentence using the word.\n'
+        'Return plain text only: no Markdown, no bullets or symbols (#, *, -, •, ```). Use only these four titles — "How to memorize:", "Explanation:", "Similar words:", and "Example:" — and no other labels or headings. Keep under 1000 words.';
+  }
+
+  /// Get Chinese prompt (returns custom or default)
+  Future<String> getChinesePrompt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final custom = prefs.getString(_keyPromptChinese) ?? '';
+    if (custom.trim().isNotEmpty) return custom;
+    // Default Chinese prompt
+    return '请为单词"\$WORD"生成简洁的学习内容，并严格按以下五行输出：\n'
+        '1) 拼音：给出该词的拼音（汉语罗马字）。\n'
+        '2) 如何记忆：提供记忆技巧。\n'
+        '3) 解释：2-3句简短中文释义, 和简短的英文解释。\n'
+        '4) 相似字：给出2-3个相似或相关字，使用中文或英文，逗号分隔在同一行。\n'
+        '5) 例句：给出一个包含该词的例句。\n'
+        '输出要求：仅限纯文本，不使用任何Markdown或符号（如#、*、-、•、```等）；允许且只允许以下五个固定标题："拼音：""如何记忆：""解释：""相似词：""例句："。不要使用其他任何标签或标题。整体不超过1000字。';
+  }
+
+  /// Set English prompt
+  Future<void> setEnglishPrompt(String prompt) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyPromptEnglish, prompt);
+  }
+
+  /// Set Chinese prompt
+  Future<void> setChinesePrompt(String prompt) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyPromptChinese, prompt);
   }
 
   /// Clear cache (call when settings change)
@@ -733,84 +778,43 @@ class AIService {
       throw Exception('API key is not configured. Please set it in Settings.');
     }
 
-    // Prepare prompt based on language, include memorization tip first and plain text constraints
-    String prompt;
+    // Prepare prompt based on language, get custom or default prompts
+    String promptTemplate;
     if (language == 'zh' || language == 'chinese') {
-      prompt = '请为单词“$word”生成简洁的学习内容，并严格按以下四行输出：\n'
-          '1) 如何记忆：提供记忆技巧。\n'
-          '2) 解释：2-3句简短释义。\n'
-          '3) 相似词：给出2-3个相似或相关词，使用中文或英文，逗号分隔在同一行。\n'
-          '4) 例句：给出一个包含该词的例句。\n'
-          '输出要求：仅限纯文本，不使用任何Markdown或符号（如#、*、-、•、```等）；允许且只允许以下四个固定标题：“如何记忆：”“解释：”“相似词：”“例句：”。不要使用其他任何标签或标题。整体不超过1000字。';
+      promptTemplate = await getChinesePrompt();
     } else {
-      prompt = 'Create concise study content for the word "$word" as exactly four lines:\n'
-          '1) How to memorize: tips to help remember how to spell the word.\n'
-          '2) Explanation: 2-3 sentences.\n'
-          '3) Similar words: 2-3 similar/related words on one line, comma-separated.\n'
-          '4) Example: one sample sentence using the word.\n'
-          'Return plain text only: no Markdown, no bullets or symbols (#, *, -, •, ```). Use only these four titles — "How to memorize:", "Explanation:", "Similar words:", and "Example:" — and no other labels or headings. Keep under 1000 words.';
+      promptTemplate = await getEnglishPrompt();
     }
+    // Replace $WORD placeholder with actual word
+    final prompt = promptTemplate.replaceAll('\$WORD', word);
 
     // Call appropriate provider
     // Debug info
     print('[AI BackCard] provider=$provider model=$model word="$word" language=$language');
     print('[AI BackCard] prompt:\n$prompt');
+
+    String response;
     switch (provider) {
       case 'gemini':
-        {
-          final r = await _generateBackCardGemini(prompt, model, apiKey);
-          return _sanitizeBackCard(r, word);
-        }
+        response = await _generateBackCardGemini(prompt, model, apiKey);
+        break;
       case 'openai':
-        {
-          final r = await _generateBackCardOpenAI(prompt, model, apiKey);
-          return _sanitizeBackCard(r, word);
-        }
+        response = await _generateBackCardOpenAI(prompt, model, apiKey);
+        break;
       case 'deepseek':
-        {
-          final r = await _generateBackCardDeepSeek(prompt, model, apiKey);
-          return _sanitizeBackCard(r, word);
-        }
+        response = await _generateBackCardDeepSeek(prompt, model, apiKey);
+        break;
       case 'qianwen':
-        {
-          final r = await _generateBackCardQianwen(prompt, model, apiKey);
-          return _sanitizeBackCard(r, word);
-        }
+        response = await _generateBackCardQianwen(prompt, model, apiKey);
+        break;
       default:
         throw Exception('Unsupported AI provider: $provider');
     }
+    
+    return _sanitizeBackCard(response, word);
   }
 
-  String _sanitizeBackCard(String text, String word) {
-    if (text.isEmpty) return text;
-    String t = text;
-    // Remove code fences
-    t = t.replaceAll('```json', '');
-    t = t.replaceAll('```', '');
-    // Split lines and clean
-    final lines = t
-        .split(RegExp(r'[\r\n]+'))
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty)
-        .map((l) {
-          // Drop markdown bullets and headings
-          l = l.replaceFirst(RegExp(r'^[#>*`\-\*•]+\s*'), '');
-          // Remove common headings like "Learning Card" or similar
-          if (RegExp(r'^(learning\s*card|card|词卡|学习卡)', caseSensitive: false).hasMatch(l)) {
-            return '';
-          }
-          return l;
-        })
-        .where((l) => l.isNotEmpty)
-        .toList();
-
-    // Join back to plain text
-    final cleaned = lines.join('\n');
-    return cleaned.trim();
-  }
-
-  /// Generate quiz question for a word
-  /// Returns JSON string with question, options, and correct answer
+  /// Generate quiz question using AI
   Future<Map<String, dynamic>> generateQuiz(String word, String language) async {
     final provider = await getAiProvider();
     final model = await getAiModel();
@@ -820,25 +824,14 @@ class AIService {
       throw Exception('API key is not configured. Please set it in Settings.');
     }
 
-    // Prepare prompt based on language
-    String prompt;
-    if (language == 'zh' || language == 'chinese') {
-      prompt = '为单词或短语\'$word\'生成一道选择题，格式如下JSON：\n'
-          '{\n'
-          '  "question": "问题描述",\n'
-          '  "options": ["选项A", "选项B", "选项C", "选项D"],\n'
-          '  "correct": 0\n'
-          '}\n'
-          '其中correct是正确答案的索引（0-3）。只返回JSON，不要其他文字。';
-    } else {
-      prompt = 'Generate a multiple choice quiz question for the word or phrase \'$word\' in this JSON format:\n'
-          '{\n'
-          '  "question": "Question text here",\n'
-          '  "options": ["Option A", "Option B", "Option C", "Option D"],\n'
-          '  "correct": 0\n'
-          '}\n'
-          'Where correct is the index (0-3) of the correct answer. Return ONLY valid JSON, no other text.';
-    }
+    // Prepare quiz prompt
+    final prompt = 'Generate a multiple choice quiz question for the word or phrase \'$word\' in this JSON format:\n'
+        '{\n'
+        '  "question": "Question text here",\n'
+        '  "options": ["Option A", "Option B", "Option C", "Option D"],\n'
+        '  "correct": 0\n'
+        '}\n'
+        'Where correct is the index (0-3) of the correct answer. Return ONLY valid JSON, no other text.';
 
     print('[AI Quiz] provider=$provider model=$model word="$word" language=$language');
     print('[AI Quiz] prompt:\n$prompt');
@@ -891,6 +884,33 @@ class AIService {
       print('[AI Quiz] Raw response: $response');
       throw Exception('Failed to parse quiz from AI response: $e');
     }
+  }
+
+  String _sanitizeBackCard(String text, String word) {
+    if (text.isEmpty) return text;
+    String t = text;
+    // Remove code fences
+    t = t.replaceAll('```json', '');
+    t = t.replaceAll('```', '');
+    // Split lines and clean
+    final lines = t
+        .split(RegExp(r'[\r\n]+'))
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .map((l) {
+          // Drop markdown bullets and headings
+          l = l.replaceFirst(RegExp(r'^[#>*`\-\*•]+\s*'), '');
+          // Remove common headings like "Learning Card" or similar
+          if (l.toLowerCase() == 'learning card' || 
+              l.toLowerCase() == 'study card' ||
+              l.toLowerCase() == word.toLowerCase()) {
+            return '';
+          }
+          return l;
+        })
+        .where((l) => l.isNotEmpty)
+        .toList();
+    return lines.join('\n');
   }
 
   /// Generate back card using Google Gemini

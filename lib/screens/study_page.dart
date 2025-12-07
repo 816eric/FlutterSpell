@@ -510,10 +510,23 @@ class _StudyPageState extends State<StudyPage> {
                         ),
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
-                          child: Text(
-                            card['text'] ?? '',
-                            style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                card['text'] ?? '',
+                                style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (_revealed && _backCard != null && _backCard!.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  _extractPinyin(_backCard!),
+                                  style: const TextStyle(fontSize: 20, color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),
@@ -651,6 +664,35 @@ class _StudyPageState extends State<StudyPage> {
     );
   }
 
+  String _extractPinyin(String backCard) {
+    // Extract pinyin from the back card content
+    final lines = backCard.split(RegExp(r'[\r\n]+'));
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      final lowerLine = trimmed.toLowerCase();
+      if (lowerLine.startsWith('pinyin:') || trimmed.startsWith('拼音：')) {
+        final colonIdx = trimmed.indexOf(':');
+        final colonCnIdx = trimmed.indexOf('：');
+        int cut = -1;
+        if (colonIdx >= 0 && colonCnIdx >= 0) {
+          cut = colonIdx < colonCnIdx ? colonIdx : colonCnIdx;
+        } else if (colonIdx >= 0) {
+          cut = colonIdx;
+        } else if (colonCnIdx >= 0) {
+          cut = colonCnIdx;
+        }
+        if (cut >= 0) {
+          final pinyin = trimmed.substring(cut + 1).trim();
+          if (pinyin.isNotEmpty && pinyin.toLowerCase() != 'n/a') {
+            return pinyin;
+          }
+        }
+      }
+    }
+    return ''; // Return empty if no pinyin found or N/A
+  }
+
   _BackSection? _extractLabeledLine(String line) {
     // Find first colon (English ':' or Chinese '：')
     final idx = line.indexOf(':');
@@ -670,9 +712,10 @@ class _StudyPageState extends State<StudyPage> {
     final labelLower = labelWithColon.toLowerCase();
 
     // Known English labels (case-insensitive) and Chinese labels (exact)
-    const knownCn = ['如何记忆：', '解释：', '相似词：', '例句：'];
+    const knownCn = ['拼音：', '如何记忆：', '解释：', '相似词：', '例句：'];
     final isKnownCn = knownCn.contains(labelWithColon);
     final isKnownEn = [
+      'pinyin:',
       'how to memorize:',
       'explanation:',
       'similar words:',
