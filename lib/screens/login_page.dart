@@ -49,52 +49,115 @@ class _LoginPageState extends State<LoginPage> {
     setState(() { _loading = true; _error = ''; });
     final name = _nameController.text.trim();
     final password = _passwordController.text;
-    if (name.isEmpty || password.isEmpty) {
-      setState(() { _error = 'Please enter both user name and password.'; _loading = false; });
-      return;
-    }
-    final confirm = await showDialog<String>(
+    final TextEditingController _registerNameController = TextEditingController(text: _nameController.text);
+    final TextEditingController _registerPasswordController = TextEditingController(text: _passwordController.text);
+    final TextEditingController _registerConfirmController = TextEditingController();
+    String? _selectedGrade;
+    String? dialogError;
+    final confirm = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
-        final TextEditingController _confirmController = TextEditingController();
-        return AlertDialog(
-          title: const Text('Confirm Password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Please confirm your password:'),
-              TextField(
-                controller: _confirmController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Confirm Password'),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final gradeOptions = [
+              'N1', 'N2', 'K1', 'K2',
+              ...List.generate(6, (i) => 'P${i + 1}'),
+              ...List.generate(6, (i) => 'S${i + 1}')
+            ];
+            return AlertDialog(
+              title: const Text('Register'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _registerNameController,
+                    decoration: const InputDecoration(labelText: 'User Name *'),
+                  ),
+                  TextField(
+                    controller: _registerPasswordController,
+                    decoration: const InputDecoration(labelText: 'Password *'),
+                    obscureText: true,
+                  ),
+                  TextField(
+                    controller: _registerConfirmController,
+                    decoration: const InputDecoration(labelText: 'Confirm Password *'),
+                    obscureText: true,
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: _selectedGrade,
+                    decoration: const InputDecoration(labelText: 'Grade *'),
+                    items: gradeOptions.map((grade) => DropdownMenuItem(
+                      value: grade,
+                      child: Text(grade),
+                    )).toList(),
+                    onChanged: (value) {
+                      setState(() { _selectedGrade = value; });
+                    },
+                  ),
+                  if (dialogError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(dialogError!, style: const TextStyle(color: Colors.red)),
+                    ),
+                ],
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(_confirmController.text),
-              child: const Text('OK'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final regName = _registerNameController.text.trim();
+                    final regPassword = _registerPasswordController.text;
+                    final regConfirm = _registerConfirmController.text;
+                    final regGrade = _selectedGrade;
+                    if (regName.isEmpty || regPassword.isEmpty || regConfirm.isEmpty || regGrade == null || regGrade.isEmpty) {
+                      setState(() { dialogError = 'All fields are required.'; });
+                      return;
+                    }
+                    if (regPassword != regConfirm) {
+                      setState(() { dialogError = 'Passwords do not match.'; });
+                      return;
+                    }
+                    Navigator.of(context).pop(true);
+                  },
+                  child: const Text('Register'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
-    if (confirm == null || confirm != password) {
-      setState(() { _error = 'Passwords do not match.'; _loading = false; });
+    if (confirm != true) {
+      setState(() { _loading = false; });
       return;
     }
+    final regName = _registerNameController.text.trim();
+    final regPassword = _registerPasswordController.text;
+    final regGrade = _selectedGrade ?? '';
     try {
-      final data = {"name": name, "password": password};
+      final data = {"name": regName, "password": regPassword, "grade": regGrade};
       await SpellApiService.createUserProfile(data);
+      // Assign tags containing the grade to the user
+      final allTags = await SpellApiService.getAllTags();
+      final matchingTags = allTags.where((tag) {
+        final tagName = (tag['name'] ?? tag['tag'] ?? '').toString();
+        return tagName.contains(regGrade);
+      }).map((tag) => tag['id']).where((id) => id != null).cast<int>().toList();
+      if (matchingTags.isNotEmpty) {
+        await SpellApiService.assignTagsToUser(regName, matchingTags);
+      }
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('loggedInUser', name);
+      await prefs.setString('loggedInUser', regName);
       Navigator.of(context).pushReplacementNamed('/home');
-    } catch (e) {
-      setState(() { _error = 'Registration failed.'; });
+    } catch (e, st) {
+      print('Registration failed:');
+      print(e);
+      print(st);
+      setState(() { _error = 'Registration failed: ' + e.toString(); });
     } finally {
       setState(() { _loading = false; });
     }
