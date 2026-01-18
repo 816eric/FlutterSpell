@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/spell_api_service.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Multi-level tree node for tag hierarchy
 class _TagTreeNode {
@@ -12,15 +12,16 @@ class _TagTreeNode {
 
 class TagAssignmentPage extends StatefulWidget {
   final String userName;
-
   const TagAssignmentPage({super.key, required this.userName});
-
   @override
   State<TagAssignmentPage> createState() => _TagAssignmentPageState();
 }
 
-
 class _TagAssignmentPageState extends State<TagAssignmentPage> {
+  static const String _tagFilterKey = 'tagAssignmentFilter';
+  final TextEditingController _filterController = TextEditingController();
+  String _filterText = '';
+  String _userGrade = '';
   final ScrollController _availableScrollController = ScrollController();
   final ScrollController _assignedScrollController = ScrollController();
   bool _shouldShowLogin = false;
@@ -38,11 +39,31 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
   void initState() {
     super.initState();
     _effectiveUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
+    _loadUserGradeAndFilter();
     // Do not check login here, do it in didChangeDependencies
+
+  }
+
+  Future<void> _loadUserGradeAndFilter() async {
+    // Fetch user profile for grade
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedFilter = prefs.getString(_tagFilterKey);
+      final profile = await SpellApiService.getUserProfile(_effectiveUserName ?? 'Guest');
+      _userGrade = profile['grade']?.toString() ?? '';
+      _filterText = savedFilter ?? _userGrade;
+      _filterController.text = _filterText;
+      setState(() {});
+    } catch (_) {
+      // fallback: just use empty
+      _filterText = '';
+      _filterController.text = '';
+      setState(() {});
+    }
   }
 
   @override
-  void didUpdateWidget(covariant TagAssignmentPage oldWidget) {
+  void didUpdateWidget(TagAssignmentPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.userName != oldWidget.userName) {
       _effectiveUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
@@ -111,7 +132,13 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
 
   void _updateAvailableTags() {
     final userTagIds = userTags.map((t) => t['id']).toSet();
-    availableTags = allTags.where((t) => !userTagIds.contains(t['id'])).toList();
+    // Filter by _filterText
+    availableTags = allTags.where((t) {
+      if (userTagIds.contains(t['id'])) return false;
+      final tagName = (t['name'] ?? t['tag'] ?? '').toString();
+      if (_filterText.isEmpty) return true;
+      return tagName.contains(_filterText);
+    }).toList();
   }
 
   Future<void> assignTags() async {
@@ -259,115 +286,137 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
       appBar: AppBar(title: const Text("Assign/Unassign Classes from Lib")),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isNarrow = constraints.maxWidth < 600;
-            final divider = isNarrow
-                ? const Divider(height: 32, thickness: 1)
-                : const VerticalDivider(width: 32, thickness: 1);
-            if (isNarrow) {
-              // Column layout with scroll for small screens
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Available tags
-                    const Text("Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    _buildTagTree(availableTags, selectedAvailableTagIds, expandedAvailableGroups, false),
-                    ElevatedButton(
-                      onPressed: assignTags,
-                      child: const Text("Assign →"),
-                    ),
-                    divider,
-                    // Assigned tags
-                    const Text("Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    _buildTagTree(userTags, selectedAssignedTagIds, expandedAssignedGroups, true),
-                    ElevatedButton(
-                      onPressed: unassignTags,
-                      child: const Text("← Unassign"),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              // Row layout for wide screens, horizontally scrollable
-              // Use constraints.maxHeight if bounded, else fallback to MediaQuery
-              double maxHeight = constraints.hasBoundedHeight && constraints.maxHeight < double.infinity
-                  ? constraints.maxHeight
-                  : MediaQuery.of(context).size.height - 32;
-              if (maxHeight < 200) maxHeight = 200;
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Available tags
-                      SizedBox(
-                        width: constraints.maxWidth / 2 > 350 ? constraints.maxWidth / 2 : 350,
-                        child: Container(
-                          constraints: const BoxConstraints(minWidth: 300, maxWidth: 600),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Text("Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 8),
-                              Expanded(
-                                child: Scrollbar(
-                                  controller: _availableScrollController,
-                                  thumbVisibility: true,
-                                  child: SingleChildScrollView(
-                                    controller: _availableScrollController,
-                                    child: _buildTagTree(availableTags, selectedAvailableTagIds, expandedAvailableGroups, false),
-                                  ),
-                                ),
-                              ),
-                              ElevatedButton(
-                                onPressed: assignTags,
-                                child: const Text("Assign →"),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      divider,
-                      // Assigned tags
-                      SizedBox(
-                        width: constraints.maxWidth / 2 > 350 ? constraints.maxWidth / 2 : 350,
-                        child: Container(
-                          constraints: const BoxConstraints(minWidth: 300, maxWidth: 600),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Text("Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 8),
-                              Expanded(
-                                child: Scrollbar(
-                                  controller: _assignedScrollController,
-                                  thumbVisibility: true,
-                                  child: SingleChildScrollView(
-                                    controller: _assignedScrollController,
-                                    child: _buildTagTree(userTags, selectedAssignedTagIds, expandedAssignedGroups, true),
-                                  ),
-                                ),
-                              ),
-                              ElevatedButton(
-                                onPressed: unassignTags,
-                                child: const Text("← Unassign"),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Text("Filter Classes: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: TextField(
+                    controller: _filterController,
+                    decoration: const InputDecoration(hintText: "Enter filter text"),
+                    onChanged: (val) async {
+                      _filterText = val;
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString(_tagFilterKey, val);
+                      setState(() {
+                        _updateAvailableTags();
+                      });
+                    },
                   ),
                 ),
-              );
-            }
-          },
+              ],
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 600;
+                  final divider = isNarrow
+                      ? const Divider(height: 32, thickness: 1)
+                      : const VerticalDivider(width: 32, thickness: 1);
+                  if (isNarrow) {
+                    // Column layout with scroll for small screens
+                    return SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text("Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          _buildTagTree(availableTags, selectedAvailableTagIds, expandedAvailableGroups, false),
+                          ElevatedButton(
+                            onPressed: assignTags,
+                            child: const Text("Assign →"),
+                          ),
+                          divider,
+                          const Text("Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          _buildTagTree(userTags, selectedAssignedTagIds, expandedAssignedGroups, true),
+                          ElevatedButton(
+                            onPressed: unassignTags,
+                            child: const Text("← Unassign"),
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    // Row layout for wide screens, horizontally scrollable
+                    double maxHeight = constraints.hasBoundedHeight && constraints.maxHeight < double.infinity
+                        ? constraints.maxHeight
+                        : MediaQuery.of(context).size.height - 32;
+                    if (maxHeight < 200) maxHeight = 200;
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: constraints.maxWidth / 2 > 350 ? constraints.maxWidth / 2 : 350,
+                              child: Container(
+                                constraints: const BoxConstraints(minWidth: 300, maxWidth: 600),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    const Text("Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 8),
+                                    Expanded(
+                                      child: Scrollbar(
+                                        controller: _availableScrollController,
+                                        thumbVisibility: true,
+                                        child: SingleChildScrollView(
+                                          controller: _availableScrollController,
+                                          child: _buildTagTree(availableTags, selectedAvailableTagIds, expandedAvailableGroups, false),
+                                        ),
+                                      ),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: assignTags,
+                                      child: const Text("Assign →"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            divider,
+                            SizedBox(
+                              width: constraints.maxWidth / 2 > 350 ? constraints.maxWidth / 2 : 350,
+                              child: Container(
+                                constraints: const BoxConstraints(minWidth: 300, maxWidth: 600),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    const Text("Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 8),
+                                    Expanded(
+                                      child: Scrollbar(
+                                        controller: _assignedScrollController,
+                                        thumbVisibility: true,
+                                        child: SingleChildScrollView(
+                                          controller: _assignedScrollController,
+                                          child: _buildTagTree(userTags, selectedAssignedTagIds, expandedAssignedGroups, true),
+                                        ),
+                                      ),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: unassignTags,
+                                      child: const Text("← Unassign"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

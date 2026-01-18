@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/spell_api_service.dart';
 import '../services/ai_service.dart';
+import '../../main.dart';
 
 class QuizPage extends StatefulWidget {
   final String userName;
@@ -209,7 +210,9 @@ class _QuizPageState extends State<QuizPage> {
         _showAnswer = false;
       });
     } else {
-      _showFinalScore();
+          // Show dialog immediately, then update points in background
+          _showQuizCompleteDialog();
+          _updateQuizPoints();
     }
   }
 
@@ -327,6 +330,53 @@ class _QuizPageState extends State<QuizPage> {
       ),
     );
   }
+  void _showQuizCompleteDialog() {
+    int pointsEarned = (_score > 0 && _quizzes.isNotEmpty) ? (_score * 2).clamp(1, 100) : 0;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Quiz Complete!'),
+        content: Text(
+          'Your score: $_score / ${_quizzes.length}\n'
+          '${(_score / _quizzes.length * 100).toStringAsFixed(1)}%'
+          '${pointsEarned > 0 ? '\n\n🎉 Points Earned: $pointsEarned' : ''}'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              setState(() {
+                _quizzes = [];
+                _currentIndex = 0;
+                _score = 0;
+                _selectedAnswer = null;
+                _showAnswer = false;
+              });
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateQuizPoints() async {
+    int pointsEarned = 0;
+    if (_score > 0 && _quizzes.isNotEmpty) {
+      pointsEarned = (_score * 2).clamp(1, 100);
+      if (widget.userName.isNotEmpty && widget.userName != 'Guest') {
+        try {
+          await SpellApiService.addPoints(
+            widget.userName,
+            pointsEarned,
+            'Quiz completed: $_score/${_quizzes.length} correct',
+          );
+        } catch (e) {
+          print('Failed to award points: $e');
+        }
+      }
+    }
+  }
 
   Future<void> _saveQuizHistory() async {
     if (_quizRecords.isEmpty) return;
@@ -368,7 +418,7 @@ class _QuizPageState extends State<QuizPage> {
                 ElevatedButton.icon(
                   onPressed: () {
                     // Navigate to settings (index 4 in main.dart)
-                    DefaultTabController.of(context).animateTo(4);
+                    MainTabController.switchToTab(4);
                   },
                   icon: const Icon(Icons.settings),
                   label: const Text('Go to Settings'),
