@@ -127,14 +127,17 @@ class SpellApiService {
   }
   // Static method to create user profile
   static Future<void> createUserProfile(Map<String, dynamic> data) async {
-    // removed unused variable
     final response = await http.post(
       Uri.parse('${SpellApiService.baseUrl}users/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(data),
     );
+    if (response.statusCode == 409) {
+      throw Exception('User already exists');
+    }
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to create user profile');
+      print('DEBUG createUserProfile error: statusCode=${response.statusCode}, body=${response.body}');
+      throw Exception('Failed to create user profile: ${response.body}');
     }
   }
   // Static method to update user profile

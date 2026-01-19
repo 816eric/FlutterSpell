@@ -14,6 +14,15 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   String _error = '';
   bool _loading = false;
+  final FocusNode _nameFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _passwordController.dispose();
+    _nameFocus.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleLogin() async {
     setState(() { _loading = true; _error = ''; });
@@ -45,15 +54,21 @@ class _LoginPageState extends State<LoginPage> {
     Navigator.of(context).pushReplacementNamed('/home');
   }
 
-  Future<void> _handleRegister() async {
+  Future<void> _handleRegister({
+    String? initialDialogError,
+    String? previousName,
+    String? previousPassword,
+    String? previousConfirmPassword,
+    String? previousGrade,
+  }) async {
     setState(() { _loading = true; _error = ''; });
-    final name = _nameController.text.trim();
-    final password = _passwordController.text;
-    final TextEditingController _registerNameController = TextEditingController(text: _nameController.text);
-    final TextEditingController _registerPasswordController = TextEditingController(text: _passwordController.text);
-    final TextEditingController _registerConfirmController = TextEditingController();
-    String? _selectedGrade;
-    String? dialogError;
+    final TextEditingController _registerNameController = TextEditingController(text: previousName ?? _nameController.text);
+    final TextEditingController _registerPasswordController = TextEditingController(text: previousPassword ?? _passwordController.text);
+    final TextEditingController _registerConfirmController = TextEditingController(text: previousConfirmPassword ?? '');
+    String? _selectedGrade = previousGrade;
+    String? dialogError = initialDialogError;
+    FocusNode _dialogNameFocus = FocusNode();
+    
     final confirm = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -65,6 +80,12 @@ class _LoginPageState extends State<LoginPage> {
               ...List.generate(6, (i) => 'P${i + 1}'),
               ...List.generate(6, (i) => 'S${i + 1}')
             ];
+            // Auto-focus name field if there's an error
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (initialDialogError != null && _dialogNameFocus.canRequestFocus) {
+                _dialogNameFocus.requestFocus();
+              }
+            });
             return AlertDialog(
               title: const Text('Register'),
               content: Column(
@@ -72,6 +93,7 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   TextField(
                     controller: _registerNameController,
+                    focusNode: _dialogNameFocus,
                     decoration: const InputDecoration(labelText: 'User Name *'),
                   ),
                   TextField(
@@ -98,7 +120,7 @@ class _LoginPageState extends State<LoginPage> {
                   if (dialogError != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(dialogError!, style: const TextStyle(color: Colors.red)),
+                      child: Text(dialogError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
                     ),
                 ],
               ),
@@ -133,10 +155,12 @@ class _LoginPageState extends State<LoginPage> {
     );
     if (confirm != true) {
       setState(() { _loading = false; });
+      _dialogNameFocus.dispose();
       return;
     }
     final regName = _registerNameController.text.trim();
     final regPassword = _registerPasswordController.text;
+    final regConfirm = _registerConfirmController.text;
     final regGrade = _selectedGrade ?? '';
     try {
       final data = {"name": regName, "password": regPassword, "grade": regGrade};
@@ -157,7 +181,28 @@ class _LoginPageState extends State<LoginPage> {
       print('Registration failed:');
       print(e);
       print(st);
-      setState(() { _error = 'Registration failed: ' + e.toString(); });
+      
+      // Check if user already exists
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('already exists') || errorMsg.contains('user already')) {
+        // Re-open the dialog with error message and keep all form data
+        setState(() { _loading = false; });
+        _dialogNameFocus.dispose();
+        // Re-show the dialog with the error and preserve form data
+        _handleRegister(
+          initialDialogError: 'Username already exists. Please choose a different username.',
+          previousName: regName,
+          previousPassword: regPassword,
+          previousConfirmPassword: regConfirm,
+          previousGrade: regGrade,
+        );
+      } else {
+        setState(() { 
+          _error = 'Registration failed: ' + e.toString();
+          _loading = false;
+        });
+        _dialogNameFocus.dispose();
+      }
     } finally {
       setState(() { _loading = false; });
     }
@@ -177,6 +222,7 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 TextField(
                   controller: _nameController,
+                  focusNode: _nameFocus,
                   decoration: const InputDecoration(labelText: 'User Name'),
                 ),
                 TextField(
