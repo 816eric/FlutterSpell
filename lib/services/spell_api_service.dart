@@ -60,6 +60,17 @@ class SpellApiService {
     }
   }
 
+  // Get available tags for a user (admin tags + user's own tags)
+  static Future<List<Map<String, dynamic>>> getAvailableTagsForUser(String userName) async {
+    final response = await http.get(Uri.parse('${SpellApiService.baseUrl}tags/available/$userName'));
+    if (response.statusCode == 200) {
+      final List<dynamic> tags = jsonDecode(response.body);
+      return tags.map((e) => Map<String, dynamic>.from(e)).toList();
+    } else {
+      throw Exception('Failed to get available tags');
+    }
+  }
+
   // Assign multiple tags to user
   static Future<void> assignTagsToUser(String userName, List<int> tagIds) async {
     final response = await http.post(
