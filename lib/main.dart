@@ -40,7 +40,7 @@ class SpellApp extends StatelessWidget {
           home: homeWidget,
           routes: {
             '/login': (context) { print('Route /login builder'); return const LoginPage(); },
-            '/home': (context) { print('Route /home builder'); return MainTabController(); },
+            '/home': (context) { print('Route /home builder'); return MainTabController(key: UniqueKey()); },
             '/reward': (context) {
               try {
                 final args = ModalRoute.of(context)?.settings.arguments;
@@ -101,6 +101,7 @@ class _MainTabControllerState extends State<MainTabController> {
 
   int _selectedIndex = 0;
   String userName = "";
+  bool _isUserLoaded = false;
 
   @override
   void initState() {
@@ -111,21 +112,31 @@ class _MainTabControllerState extends State<MainTabController> {
   Future<void> _loadUserFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUser = prefs.getString('loggedInUser');
+    print('DEBUG _loadUserFromPrefs: savedUser=$savedUser');
+    
     if (savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest') {
+      // Trust the saved user - no need to verify via API
+      // This fixes race condition where getUserProfile might fail before user profile is fully created
+      setState(() {
+        userName = savedUser;
+        _isUserLoaded = true;
+      });
+      print('DEBUG _loadUserFromPrefs: userName set to $savedUser');
+      
+      // Optionally verify the profile exists in background (non-blocking)
       try {
         await SpellApiService.getUserProfile(savedUser);
-        setState(() {
-          userName = savedUser;
-        });
-      } catch (_) {
-        setState(() {
-          userName = "Guest";
-        });
+        print('DEBUG _loadUserFromPrefs: getUserProfile succeeded for $savedUser');
+      } catch (e) {
+        print('DEBUG _loadUserFromPrefs: getUserProfile failed (non-blocking): $e');
+        // Don't set to Guest on failure - keep the saved user
       }
     } else {
       setState(() {
         userName = "Guest";
+        _isUserLoaded = true;
       });
+      print('DEBUG _loadUserFromPrefs: No saved user, set to Guest');
     }
   }
 
@@ -165,38 +176,45 @@ class _MainTabControllerState extends State<MainTabController> {
       ];
 
   void _onItemTapped(int index) async {
+    // Always check latest user from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final savedUser = prefs.getString('loggedInUser');
+    final isLoggedIn = savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest';
+    
+    print('DEBUG _onItemTapped: index=$index, savedUser=$savedUser, isLoggedIn=$isLoggedIn');
+    
     if (index == 4) { // 'More' tab
-      // Always check latest user from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final savedUser = prefs.getString('loggedInUser');
-      final isLoggedIn = savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest';
       if (isLoggedIn) {
         if (savedUser != userName) {
+          print('DEBUG: Updating userName from $userName to $savedUser');
           _onUserLogin(savedUser);
         }
         setState(() => _selectedIndex = index);
       } else {
-        await Navigator.of(context).pushNamed('/login');
-        // After returning from login, always reload user from SharedPreferences
-        final prefs2 = await SharedPreferences.getInstance();
-        final savedUser2 = prefs2.getString('loggedInUser');
-        if (savedUser2 != null && savedUser2.isNotEmpty && savedUser2 != 'Guest') {
-          _onUserLogin(savedUser2);
-        } else {
-          setState(() { userName = "Guest"; });
+        // Not logged in - go to login page
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/login');
         }
-        setState(() => _selectedIndex = 0); // Always go to Home after settings
+      }
+    } else if (index == 2 || index == 3) { // My Words, Quiz tabs - require login
+      if (isLoggedIn) {
+        if (savedUser != userName) {
+          print('DEBUG: Updating userName from $userName to $savedUser');
+          _onUserLogin(savedUser);
+        }
+        setState(() => _selectedIndex = index);
+      } else {
+        // Not logged in - go to login page
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
       }
     } else {
-      // If switching to Home tab, always reload user from SharedPreferences
-      if (index == 0) {
-        final prefs = await SharedPreferences.getInstance();
-        final savedUser = prefs.getString('loggedInUser');
-        if (savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest') {
-          _onUserLogin(savedUser);
-        } else {
-          setState(() { userName = "Guest"; });
-        }
+      // Home (0) and Study (1) tabs - always accessible
+      if (isLoggedIn) {
+        _onUserLogin(savedUser);
+      } else {
+        setState(() { userName = "Guest"; });
       }
       setState(() => _selectedIndex = index);
     }
@@ -204,8 +222,16 @@ class _MainTabControllerState extends State<MainTabController> {
 
   @override
   Widget build(BuildContext context) {
+    // Wait for user to be loaded before showing content
+    if (!_isUserLoaded) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Spell Practice")),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(title: Text("Spell Practice"), bottom: PreferredSize(preferredSize: Size.fromHeight(50), child: TopAdBar())),
+      appBar: AppBar(title: const Text("Spell Practice"), bottom: PreferredSize(preferredSize: Size.fromHeight(50), child: TopAdBar())),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,

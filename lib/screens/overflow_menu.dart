@@ -15,6 +15,7 @@ class OverflowMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = userName.isNotEmpty && userName != 'Guest';
+    print('DEBUG OverflowMenu.build: userName=$userName, isLoggedIn=$isLoggedIn');
 
     return ListView(
       children: [

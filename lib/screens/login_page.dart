@@ -165,17 +165,27 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final data = {"name": regName, "password": regPassword, "grade": regGrade};
       await SpellApiService.createUserProfile(data);
-      // Assign tags containing the grade to the user
-      final allTags = await SpellApiService.getAllTags();
-      final matchingTags = allTags.where((tag) {
-        final tagName = (tag['name'] ?? tag['tag'] ?? '').toString();
-        return tagName.contains(regGrade);
-      }).map((tag) => tag['id']).where((id) => id != null).cast<int>().toList();
-      if (matchingTags.isNotEmpty) {
-        await SpellApiService.assignTagsToUser(regName, matchingTags);
-      }
+      
+      // Save user as logged in
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('loggedInUser', regName);
+      
+      // Try to assign tags containing the grade to the user (non-blocking)
+      try {
+        final allTags = await SpellApiService.getAllTags();
+        final matchingTags = allTags.where((tag) {
+          final tagName = (tag['name'] ?? tag['tag'] ?? '').toString();
+          return tagName.contains(regGrade);
+        }).map((tag) => tag['id']).where((id) => id != null).cast<int>().toList();
+        if (matchingTags.isNotEmpty) {
+          await SpellApiService.assignTagsToUser(regName, matchingTags);
+        }
+      } catch (tagError) {
+        // If tag assignment fails, just log it but continue with registration
+        print('WARNING: Failed to assign default tags: $tagError');
+      }
+      
+      // Navigate to tag assignment page for new user to select their classes
       Navigator.of(context).pushReplacementNamed('/home');
     } catch (e, st) {
       print('Registration failed:');

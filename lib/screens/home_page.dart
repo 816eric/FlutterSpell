@@ -21,7 +21,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _showWord = false;
-  String? _effectiveUserName;
+  late String _effectiveUserName;
   int _playSession = 0;
   final FlutterTts tts = FlutterTts();
   List<String> tags = [];
@@ -36,9 +36,40 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    // Initialize with widget userName first, then load from prefs
+    _effectiveUserName = (widget.userName.isNotEmpty && widget.userName != 'Guest') ? widget.userName : 'Guest';
+    print('DEBUG HomePage initState: initialized _effectiveUserName to $_effectiveUserName from widget.userName=${widget.userName}');
     initTTS();
-    _effectiveUserName = (widget.userName.isEmpty) ? 'Guest' : widget.userName;
+    _loadUserNameFromPrefsThenFetchData();
+  }
+
+  Future<void> _loadUserNameFromPrefsThenFetchData() async {
+    await _loadUserNameFromPrefs();
     fetchUserData();
+  }
+
+  Future<void> _loadUserNameFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUser = prefs.getString('loggedInUser');
+    print('DEBUG HomePage _loadUserNameFromPrefs: savedUser=$savedUser, widget.userName=${widget.userName}');
+    
+    // Prefer the saved user from SharedPreferences
+    if (savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest') {
+      setState(() {
+        _effectiveUserName = savedUser;
+      });
+      print('DEBUG HomePage: userName set to $savedUser from SharedPreferences');
+    } else if (widget.userName.isNotEmpty && widget.userName != 'Guest') {
+      setState(() {
+        _effectiveUserName = widget.userName;
+      });
+      print('DEBUG HomePage: userName set to ${widget.userName} from widget');
+    } else {
+      setState(() {
+        _effectiveUserName = 'Guest';
+      });
+      print('DEBUG HomePage: userName set to Guest');
+    }
   }
 
   Future<void> initTTS() async {
@@ -71,7 +102,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> fetchUserData() async {
-    String user = _effectiveUserName ?? 'Guest';
+    String user = _effectiveUserName;
     try {
       // Only fetch profile if user is not empty and not 'Guest'
       Map<String, dynamic> profile = {};
@@ -142,7 +173,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> fetchWords(String tag) async {
     // If user is Guest, fetch words as Admin
-    final user = (_effectiveUserName == null || _effectiveUserName == 'Guest') ? 'admin' : _effectiveUserName!;
+    final user = (_effectiveUserName == 'Guest') ? 'admin' : _effectiveUserName;
     final fetchedWords = await SpellApiService.getWords(user, tag);
     if (!mounted) return;
     setState(() {
@@ -241,7 +272,7 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("👋 Hello, ${_effectiveUserName ?? 'Guest'}! You have $points points.",
+                Text("👋 Hello, $_effectiveUserName! You have $points points.",
                   style: const TextStyle(fontSize: 18),
                   textAlign: TextAlign.center,
                 ),

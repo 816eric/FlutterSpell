@@ -68,7 +68,8 @@ class SpellApiService {
       body: jsonEncode(tagIds),
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to assign tags');
+      print('DEBUG assignTagsToUser error: statusCode=${response.statusCode}, body=${response.body}');
+      throw Exception('Failed to assign tags: ${response.statusCode} - ${response.body}');
     }
   }
 
@@ -155,30 +156,45 @@ class SpellApiService {
 
   // Static method to get user profile
   static Future<Map<String, dynamic>> getUserProfile(String userName) async {
-    // removed unused variable
     final response = await http.get(Uri.parse('${SpellApiService.baseUrl}users/$userName/profile'));
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      } else {
+        throw Exception('Invalid response format from getUserProfile');
+      }
     } else {
-      throw Exception('Failed to get user profile');
+      throw Exception('Failed to get user profile: ${response.statusCode}');
+    }
+  }
+
+  // Delete user and all their data
+  static Future<void> deleteUser(String userName) async {
+    final response = await http.delete(
+      Uri.parse('${SpellApiService.baseUrl}users/$userName'),
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to delete user account');
     }
   }
 
   // Verify user password with backend (matches FastAPI route)
   static Future<bool> verifyUserPassword(String userName, String password) async {
-    //print('DEBUG verifyUserPassword: userName=$userName, password=$password');
+    print('DEBUG verifyUserPassword: userName=$userName, password=$password');
     final response = await http.post(
       Uri.parse('${SpellApiService.baseUrl}users/$userName/verify-password'),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'password=${Uri.encodeComponent(password)}',
     );
-    //print('DEBUG verifyUserPassword response.statusCode: ${response.statusCode}');
-    //print('DEBUG verifyUserPassword response.body: ${response.body}');
+    print('DEBUG verifyUserPassword response.statusCode: ${response.statusCode}');
+    print('DEBUG verifyUserPassword response.body: ${response.body}');
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      //print('DEBUG verifyUserPassword decoded data: $data');
+      print('DEBUG verifyUserPassword decoded data: $data');
       return data['verified'] == true;
     } else {
+      print('DEBUG verifyUserPassword failed with status ${response.statusCode}');
       return false;
     }
   }

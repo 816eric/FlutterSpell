@@ -28,28 +28,40 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadLoggedInUser();
-    _loadVoices();
-    _loadUserSettings();
+    _initializeSettings();
+  }
+
+  Future<void> _initializeSettings() async {
+    await _loadLoggedInUser();
+    await _loadVoices();
+    await _loadUserSettings();
   }
 
   Future<void> _loadLoggedInUser() async {
     final prefs = await SharedPreferences.getInstance();
     final user = prefs.getString(loggedInUserKey);
+    print('DEBUG SettingsPage _loadLoggedInUser: user=$user');
     setState(() => loggedInUser = user);
   }
 
   Future<void> _loadUserSettings() async {
-    if (loggedInUser == null) return;
+    // Guest users don't need to load settings
+    if (loggedInUser == null || loggedInUser == 'Guest') {
+      print('DEBUG SettingsPage _loadUserSettings: skipping for guest user');
+      return;
+    }
+    
     setState(() {
       settingsLoading = true;
       settingsError = null;
     });
     try {
       final profile = await SpellApiService.getUserProfile(loggedInUser!);
+      print('DEBUG SettingsPage _loadUserSettings: profile=$profile');
       final userId = profile['id'] ?? null;
       if (userId == null) throw Exception('User ID not found');
       final settings = await SpellApiService.getUserSettings(userId);
+      print('DEBUG SettingsPage _loadUserSettings: settings=$settings');
       setState(() {
         userSettings = settings;
         studyWordsSource = settings?['study_words_source'] ?? 'ALL_TAGS';
@@ -57,8 +69,9 @@ class _SettingsPageState extends State<SettingsPage> {
         spellRepeatCount = settings?['spell_repeat_count'] ?? 1;
       });
     } catch (e) {
+      print('DEBUG SettingsPage _loadUserSettings error: $e');
       setState(() {
-        settingsError = 'Failed to load settings';
+        settingsError = 'Failed to load settings: $e';
       });
     } finally {
       setState(() {
@@ -68,7 +81,13 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveUserSettings() async {
-    if (loggedInUser == null) return;
+    // Guest users don't need to save settings
+    if (loggedInUser == null || loggedInUser == 'Guest') {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please login to save settings')));
+      return;
+    }
+    
     setState(() {
       settingsLoading = true;
       settingsError = null;
@@ -93,8 +112,9 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Settings saved')));
     } catch (e) {
+      print('DEBUG SettingsPage _saveUserSettings error: $e');
       setState(() {
-        settingsError = 'Failed to save settings';
+        settingsError = 'Failed to save settings: $e';
       });
     } finally {
       setState(() {
@@ -141,6 +161,31 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
+            // Welcome text
+            if (loggedInUser != null && loggedInUser != 'Guest')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Text(
+                  'Welcome, $loggedInUser!',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              )
+            else if (loggedInUser == 'Guest' || loggedInUser == null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Text(
+                  'Welcome, Guest!',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
             // Study Settings Section (only for logged-in users)
             if (loggedInUser != null) ...[
               if (settingsLoading)

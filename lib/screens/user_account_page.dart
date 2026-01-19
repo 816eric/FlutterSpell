@@ -25,17 +25,36 @@ class _UserAccountPageState extends State<UserAccountPage> {
   bool _isLoading = false;
   String _message = '';
   Map<String, dynamic>? _userProfile;
+  late String _effectiveUserName;
 
   @override
   void initState() {
     super.initState();
-    _loadUserProfile();
+    _initializeUser();
+  }
+
+  Future<void> _initializeUser() async {
+    // Read the actual logged-in user from SharedPreferences, not the passed parameter
+    final prefs = await SharedPreferences.getInstance();
+    final savedUser = prefs.getString('loggedInUser');
+    print('DEBUG UserAccountPage _initializeUser: savedUser=$savedUser, widget.userName=${widget.userName}');
+    
+    if (savedUser != null && savedUser.isNotEmpty && savedUser != 'Guest') {
+      _effectiveUserName = savedUser;
+      _loadUserProfile();
+    } else {
+      // Not logged in - show login page instead
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+    }
   }
 
   Future<void> _loadUserProfile() async {
     setState(() => _isLoading = true);
     try {
-      final profile = await SpellApiService.getUserProfile(widget.userName);
+      final profile = await SpellApiService.getUserProfile(_effectiveUserName);
+      print('DEBUG UserAccountPage _loadUserProfile: profile=$profile');
       setState(() {
         _userProfile = profile;
         _nameController.text = profile['name'] ?? '';
@@ -46,7 +65,13 @@ class _UserAccountPageState extends State<UserAccountPage> {
         _gradeController.text = profile['grade'] ?? '';
       });
     } catch (e) {
-      setState(() => _message = 'Failed to load profile: $e');
+      print('DEBUG UserAccountPage _loadUserProfile error: $e');
+      // For new users, the profile might not be fully loaded yet
+      // Just use the username and let user edit other fields
+      setState(() {
+        _nameController.text = _effectiveUserName;
+        _message = 'Profile not fully loaded yet. You can edit your details below.';
+      });
     } finally {
       setState(() => _isLoading = false);
     }
@@ -68,7 +93,7 @@ class _UserAccountPageState extends State<UserAccountPage> {
         'grade': _gradeController.text.isEmpty ? null : _gradeController.text,
       };
 
-      await SpellApiService.updateUserProfile(widget.userName, data);
+      await SpellApiService.updateUserProfile(_effectiveUserName, data);
       setState(() => _message = 'Profile updated successfully!');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green),
@@ -97,7 +122,7 @@ class _UserAccountPageState extends State<UserAccountPage> {
     setState(() => _isLoading = true);
     try {
       final data = {'password': newPassword};
-      await SpellApiService.updateUserProfile(widget.userName, data);
+      await SpellApiService.updateUserProfile(_effectiveUserName, data);
       _newPasswordController.clear();
       _confirmPasswordController.clear();
       setState(() => _message = 'Password changed successfully!');
@@ -129,13 +154,85 @@ class _UserAccountPageState extends State<UserAccountPage> {
         ],
       ),
     );
+    if (confirm != true) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('loggedInUser');
+    if (mounted) {
+      // Pop back to MainTabController first, then replace with login
+      Navigator.of(context).pop();
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
+  }
 
-    if (confirm == true) {
+  Future<void> _deleteUser() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.warning, color: Colors.red, size: 48),
+            SizedBox(height: 16),
+            Text(
+              'Warning: This action cannot be undone!',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'All your data will be permanently deleted:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('• Your profile information'),
+            Text('• All tags you created'),
+            Text('• All words/study materials'),
+            Text('• All study history'),
+            SizedBox(height: 16),
+            Text(
+              'Are you sure you want to delete your account?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm != true) return;
+    
+    setState(() => _isLoading = true);
+    try {
+      await SpellApiService.deleteUser(_effectiveUserName);
+      
+      // Clear logged in user
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('loggedInUser');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account deleted successfully'), backgroundColor: Colors.red),
+      );
+      
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/login');
       }
+    } catch (e) {
+      setState(() => _message = 'Failed to delete account: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -154,26 +251,6 @@ class _UserAccountPageState extends State<UserAccountPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Check if user is logged in
-    if (widget.userName.isEmpty || widget.userName == 'Guest') {
-      return Scaffold(
-        appBar: AppBar(title: const Text('User Account')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('Please login to view your account', style: TextStyle(fontSize: 16)),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pushReplacementNamed('/login'),
-                child: const Text('Go to Login'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(title: const Text('User Account')),
       body: _isLoading && _userProfile == null
@@ -297,18 +374,33 @@ class _UserAccountPageState extends State<UserAccountPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Logout Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isLoading ? null : _logout,
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Logout'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
+                  // Logout and Delete Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _logout,
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Logout'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _deleteUser,
+                          icon: const Icon(Icons.delete_forever),
+                          label: const Text('Delete Account'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                   // Message Display
