@@ -54,15 +54,7 @@ class SpellApp extends StatelessWidget {
             },
             '/settings': (context) {
               try {
-                final mainTabState = context.findAncestorStateOfType<_MainTabControllerState>();
-                return SettingsPage(
-                  onLogin: (userName) {
-                    if (mainTabState != null) {
-                      mainTabState._onUserLogin(userName);
-                    }
-                    Navigator.of(context).pop();
-                  },
-                );
+                return SettingsPage();
               } catch (e, st) {
                 print('Error building /settings: $e');
                 print(st);
@@ -184,8 +176,8 @@ class _MainTabControllerState extends State<MainTabController> {
         }
         setState(() => _selectedIndex = index);
       } else {
-        await Navigator.of(context).pushNamed('/settings');
-        // After returning from settings, always reload user from SharedPreferences
+        await Navigator.of(context).pushNamed('/login');
+        // After returning from login, always reload user from SharedPreferences
         final prefs2 = await SharedPreferences.getInstance();
         final savedUser2 = prefs2.getString('loggedInUser');
         if (savedUser2 != null && savedUser2.isNotEmpty && savedUser2 != 'Guest') {

@@ -75,7 +75,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Please Login first')),
             );
-            Navigator.of(context).pushReplacementNamed('/settings');
+            Navigator.of(context).pushReplacementNamed('/login');
           });
         }
       } else {
@@ -102,7 +102,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please Login first')),
           );
-          Navigator.of(context).pushReplacementNamed('/settings');
+          Navigator.of(context).pushReplacementNamed('/login');
         });
       }
     } else {

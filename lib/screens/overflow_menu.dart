@@ -3,6 +3,7 @@ import 'settings.dart';
 import 'leaderboard_page.dart';
 import 'study_history_page.dart';
 import 'study_suggestion_page.dart';
+import 'user_account_page.dart';
 
 
 class OverflowMenu extends StatelessWidget {
@@ -13,8 +14,22 @@ class OverflowMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLoggedIn = userName.isNotEmpty && userName != 'Guest';
+
     return ListView(
       children: [
+        if (isLoggedIn)
+          ListTile(
+            leading: const Icon(Icons.account_circle),
+            title: const Text("User Account"),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => UserAccountPage(userName: userName),
+                ),
+              );
+            },
+          ),
         ListTile(
           leading: const Icon(Icons.card_giftcard),
           title: const Text("Rewards & Redeem"),
@@ -68,15 +83,9 @@ class OverflowMenu extends StatelessWidget {
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => SettingsPage(
-                  onLogin: onLogin ?? (_) {},
-                ),
+                builder: (context) => SettingsPage(),
               ),
-            ).then((value) {
-              if (value == 'logout' && onLogout != null) {
-                onLogout!();
-              }
-            });
+            );
           },
         ),
       ],

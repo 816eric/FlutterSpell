@@ -8,8 +8,8 @@ class SpellApiService {
   // --- All static methods must be inside this class body ---
   
   //static final String baseUrl = "https://spellbackend.onrender.com/";
-  //static final String baseUrl = "http://127.0.0.1:8000/";
-  static final String baseUrl = "https://spellbackend.fly.dev/";
+  static final String baseUrl = "http://127.0.0.1:8000/";
+  //static final String baseUrl = "https://spellbackend.fly.dev/";
 
   //create the static methond below this line
 
