@@ -95,6 +95,14 @@ class _LoginPageState extends State<LoginPage> {
                     controller: _registerNameController,
                     focusNode: _dialogNameFocus,
                     decoration: const InputDecoration(labelText: 'User Name *'),
+                    textCapitalization: TextCapitalization.characters,
+                    onChanged: (value) {
+                      final cursorPos = _registerNameController.selection.start;
+                      _registerNameController.value = TextEditingValue(
+                        text: value.toUpperCase(),
+                        selection: TextSelection.collapsed(offset: cursorPos),
+                      );
+                    },
                   ),
                   TextField(
                     controller: _registerPasswordController,
@@ -234,6 +242,14 @@ class _LoginPageState extends State<LoginPage> {
                   controller: _nameController,
                   focusNode: _nameFocus,
                   decoration: const InputDecoration(labelText: 'User Name'),
+                  textCapitalization: TextCapitalization.characters,
+                  onChanged: (value) {
+                    final cursorPos = _nameController.selection.start;
+                    _nameController.value = TextEditingValue(
+                      text: value.toUpperCase(),
+                      selection: TextSelection.collapsed(offset: cursorPos),
+                    );
+                  },
                 ),
                 TextField(
                   controller: _passwordController,

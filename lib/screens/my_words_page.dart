@@ -232,6 +232,14 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
           TextField(
             controller: _tagController,
             decoration: const InputDecoration(labelText: "Suggested Tag (editable)"),
+            textCapitalization: TextCapitalization.characters,
+            onChanged: (value) {
+              final cursorPos = _tagController.selection.start;
+              _tagController.value = TextEditingValue(
+                text: value.toUpperCase(),
+                selection: TextSelection.collapsed(offset: cursorPos),
+              );
+            },
           ),
           const SizedBox(height: 10),
           Row(

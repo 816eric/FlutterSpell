@@ -118,7 +118,8 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
   }
 
   Future<void> fetchTags() async {
-    final all = await SpellApiService.getAllTags();
+    // Get only tags created by admin or by the current user
+    final all = await SpellApiService.getAvailableTagsForUser(_effectiveUserName ?? 'Guest');
     final user = await SpellApiService.getUserTags(_effectiveUserName ?? 'Guest');
     setState(() {
       allTags = all;
@@ -296,10 +297,19 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                   child: TextField(
                     controller: _filterController,
                     decoration: const InputDecoration(hintText: "Enter filter text"),
+                    textCapitalization: TextCapitalization.characters,
                     onChanged: (val) async {
-                      _filterText = val;
+                      final upperVal = val.toUpperCase();
+                      if (val != upperVal) {
+                        final cursorPos = _filterController.selection.start;
+                        _filterController.value = TextEditingValue(
+                          text: upperVal,
+                          selection: TextSelection.collapsed(offset: cursorPos),
+                        );
+                      }
+                      _filterText = upperVal;
                       final prefs = await SharedPreferences.getInstance();
-                      await prefs.setString(_tagFilterKey, val);
+                      await prefs.setString(_tagFilterKey, upperVal);
                       setState(() {
                         _updateAvailableTags();
                       });
