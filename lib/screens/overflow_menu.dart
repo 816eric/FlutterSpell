@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'settings.dart';
 import 'leaderboard_page.dart';
 import 'study_history_page.dart';
 import 'study_suggestion_page.dart';
 import 'user_account_page.dart';
+import 'legal_page.dart';
 
 
 class OverflowMenu extends StatelessWidget {
@@ -87,6 +89,40 @@ class OverflowMenu extends StatelessWidget {
                 builder: (context) => SettingsPage(),
               ),
             );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.gavel, color: Colors.orange),
+          title: const Text("Legal"),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const LegalPage(),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.menu_book, color: Colors.purple),
+          title: const Text("User Manual"),
+          trailing: const Icon(Icons.open_in_new, size: 18, color: Colors.grey),
+          onTap: () async {
+            final uri = Uri.parse('https://aispell.pages.dev/user-manual.html');
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.feedback, color: Colors.teal),
+          title: const Text("Suggestions & Testimonials"),
+          subtitle: const Text("Send us your feedback"),
+          trailing: const Icon(Icons.email, size: 18, color: Colors.grey),
+          onTap: () async {
+            final uri = Uri.parse('mailto:713.zhao@gmail.com?subject=Spell%20App%20Feedback');
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri);
+            }
           },
         ),
       ],

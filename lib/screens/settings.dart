@@ -16,9 +16,9 @@ class _SettingsPageState extends State<SettingsPage> {
   Map<String, dynamic>? userSettings;
   bool settingsLoading = false;
   String? settingsError;
-  String studyWordsSource = 'ALL_TAGS';
+  String studyWordsSource = 'CURRENT_TAG';
   int numStudyWords = 10;
-  int spellRepeatCount = 1;
+  int spellRepeatCount = 3;
   String? loggedInUser;
 
   List<Map<String, String>> availableVoices = [];
@@ -64,9 +64,9 @@ class _SettingsPageState extends State<SettingsPage> {
       print('DEBUG SettingsPage _loadUserSettings: settings=$settings');
       setState(() {
         userSettings = settings;
-        studyWordsSource = settings?['study_words_source'] ?? 'ALL_TAGS';
+        studyWordsSource = settings?['study_words_source'] ?? 'CURRENT_TAG';
         numStudyWords = settings?['num_study_words'] ?? 10;
-        spellRepeatCount = settings?['spell_repeat_count'] ?? 1;
+        spellRepeatCount = settings?['spell_repeat_count'] ?? 3;
       });
     } catch (e) {
       print('DEBUG SettingsPage _loadUserSettings error: $e');

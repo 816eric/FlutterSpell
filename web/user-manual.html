@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Manual - Spell App</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.7;
+            color: #333;
+        }
+        h1 { color: #2196F3; border-bottom: 3px solid #2196F3; padding-bottom: 10px; }
+        h2 { color: #1976D2; margin-top: 40px; border-left: 4px solid #2196F3; padding-left: 15px; }
+        h3 { color: #1565C0; margin-top: 25px; }
+        .last-updated { color: #666; font-style: italic; margin-bottom: 30px; }
+        .toc { background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .toc ul { margin: 10px 0; padding-left: 20px; }
+        .toc li { margin: 8px 0; }
+        .toc a { color: #1976D2; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        .tip { background: #e8f5e9; padding: 15px; border-left: 4px solid #4caf50; margin: 15px 0; border-radius: 0 8px 8px 0; }
+        .tip::before { content: "💡 Tip: "; font-weight: bold; color: #2e7d32; }
+        .warning { background: #fff3e0; padding: 15px; border-left: 4px solid #ff9800; margin: 15px 0; border-radius: 0 8px 8px 0; }
+        .warning::before { content: "⚠️ Note: "; font-weight: bold; color: #e65100; }
+        .steps { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 15px 0; }
+        .steps ol { margin: 0; padding-left: 20px; }
+        .steps li { margin: 10px 0; }
+        .feature-card { background: #fafafa; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; margin: 15px 0; }
+        .icon { font-size: 24px; margin-right: 10px; }
+        img { max-width: 100%; border: 1px solid #ddd; border-radius: 8px; margin: 10px 0; }
+        .contact { background: #f5f5f5; padding: 15px; border-radius: 8px; margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #2196F3; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <h1>📚 Spell App User Manual</h1>
+    <p class="last-updated">Last Updated: January 20, 2026</p>
+
+    <p>Welcome to Spell App! This guide will help you get started and make the most of your spelling practice experience.</p>
+
+    <div class="toc">
+        <strong>📋 Table of Contents</strong>
+        <ul>
+            <li><a href="#getting-started">Getting Started</a></li>
+            <li><a href="#navigation">App Navigation</a></li>
+            <li><a href="#home">Home Tab</a></li>
+            <li><a href="#study">Study Tab - Practice Spelling</a></li>
+            <li><a href="#mywords">My Words Tab - Manage Your Words</a></li>
+            <li><a href="#quiz">Quiz Tab - Test Your Knowledge</a></li>
+            <li><a href="#more">More Tab - Settings & Account</a></li>
+            <li><a href="#tips">Tips for Success</a></li>
+            <li><a href="#faq">Frequently Asked Questions</a></li>
+            <li><a href="#support">Support</a></li>
+        </ul>
+    </div>
+
+    <h2 id="getting-started">🚀 Getting Started</h2>
+    
+    <h3>Creating an Account</h3>
+    <div class="steps">
+        <ol>
+            <li>Open the Spell App</li>
+            <li>Tap <strong>"Register"</strong> on the login screen</li>
+            <li>Enter your desired username</li>
+            <li>Create a password</li>
+            <li>Tap <strong>"Register"</strong> to create your account</li>
+            <li>You'll be automatically logged in</li>
+        </ol>
+    </div>
+
+    <h3>Logging In</h3>
+    <div class="steps">
+        <ol>
+            <li>Enter your username</li>
+            <li>Enter your password</li>
+            <li>Tap <strong>"Login"</strong></li>
+        </ol>
+    </div>
+
+    <h3>Guest Mode</h3>
+    <p>You can use the app without an account by tapping <strong>"Continue as Guest"</strong>. As a guest, you can:</p>
+    <ul>
+        <li>✅ View the Home tab</li>
+        <li>✅ Use the Study tab to practice spelling</li>
+        <li>❌ Cannot access My Words (requires login)</li>
+        <li>❌ Cannot take Quizzes (requires login)</li>
+        <li>❌ Cannot save progress (requires login)</li>
+    </ul>
+
+    <div class="tip">Create an account to save your progress, add custom words, and track your learning journey!</div>
+
+    <h2 id="navigation">🧭 App Navigation</h2>
+    
+    <p>The app has 5 main tabs at the bottom of the screen:</p>
+    
+    <table>
+        <tr>
+            <th>Tab</th>
+            <th>Icon</th>
+            <th>Purpose</th>
+        </tr>
+        <tr>
+            <td><strong>Home</strong></td>
+            <td>🏠</td>
+            <td>View your word lists and select what to study</td>
+        </tr>
+        <tr>
+            <td><strong>Study</strong></td>
+            <td>📖</td>
+            <td>Practice spelling with audio pronunciation</td>
+        </tr>
+        <tr>
+            <td><strong>My Words</strong></td>
+            <td>📝</td>
+            <td>Add and manage your custom words (login required)</td>
+        </tr>
+        <tr>
+            <td><strong>Quiz</strong></td>
+            <td>❓</td>
+            <td>Test your spelling knowledge (login required)</td>
+        </tr>
+        <tr>
+            <td><strong>More</strong></td>
+            <td>⋯</td>
+            <td>Settings, account, leaderboard, and more</td>
+        </tr>
+    </table>
+
+    <h2 id="home">🏠 Home Tab</h2>
+    
+    <p>The Home tab displays your available word lists (tags) and lets you select what to study.</p>
+    
+    <h3>Selecting a Word List</h3>
+    <div class="steps">
+        <ol>
+            <li>Browse the available tags/word lists</li>
+            <li>Tap on a tag to select it</li>
+            <li>The selected tag will be used for your study session</li>
+        </ol>
+    </div>
+
+    <h3>Understanding Tags</h3>
+    <p>Tags are categories that organize your words. For example:</p>
+    <ul>
+        <li><strong>Week 1, Week 2, etc.</strong> - Weekly spelling lists</li>
+        <li><strong>Science Words</strong> - Subject-specific vocabulary</li>
+        <li><strong>Difficult Words</strong> - Words you find challenging</li>
+    </ul>
+
+    <h2 id="study">📖 Study Tab - Practice Spelling</h2>
+    
+    <p>The Study tab is where you practice spelling words with audio pronunciation.</p>
+    
+    <h3>How to Practice</h3>
+    <div class="steps">
+        <ol>
+            <li>Go to the <strong>Study</strong> tab</li>
+            <li>Tap the <strong>speaker icon 🔊</strong> to hear the word</li>
+            <li>Type the spelling in the text field</li>
+            <li>Tap <strong>"Check"</strong> to verify your spelling</li>
+            <li>If correct ✅, move to the next word</li>
+            <li>If incorrect ❌, try again or view the correct spelling</li>
+        </ol>
+    </div>
+
+    <h3>Study Features</h3>
+    <ul>
+        <li><strong>🔊 Audio Pronunciation</strong> - Hear the word spoken aloud</li>
+        <li><strong>📝 Hints</strong> - Get hints if you're stuck</li>
+        <li><strong>🔄 Repeat</strong> - Practice each word multiple times</li>
+        <li><strong>📊 Progress Tracking</strong> - See how many words you've completed</li>
+    </ul>
+
+    <div class="tip">Listen to the word multiple times before attempting to spell it. Pay attention to each syllable!</div>
+
+    <h2 id="mywords">📝 My Words Tab - Manage Your Words</h2>
+    
+    <p>Add your own custom words and organize them with tags.</p>
+
+    <h3>Adding a New Word</h3>
+    <div class="steps">
+        <ol>
+            <li>Go to the <strong>My Words</strong> tab</li>
+            <li>Tap the <strong>"Add Word"</strong> button</li>
+            <li>Enter the spelling word</li>
+            <li>Enter the Chinese translation (optional)</li>
+            <li>Select or create a tag/category</li>
+            <li>Choose <strong>Public</strong> or <strong>Private</strong>:
+                <ul>
+                    <li><strong>Public</strong>: Word list is visible to all users</li>
+                    <li><strong>Private</strong>: Only you can see this word list</li>
+                </ul>
+            </li>
+            <li>Tap <strong>"Save"</strong> to add the word</li>
+        </ol>
+    </div>
+
+    <h3>Managing Words</h3>
+    <ul>
+        <li><strong>View Words</strong> - See all words in a selected tag</li>
+        <li><strong>Edit Words</strong> - Modify word details</li>
+        <li><strong>Delete Words</strong> - Remove words you no longer need</li>
+    </ul>
+
+    <h3>Assigning Tags</h3>
+    <p>You can assign existing word lists (tags) to yourself:</p>
+    <div class="steps">
+        <ol>
+            <li>Go to <strong>More</strong> → <strong>Assign Class</strong></li>
+            <li>Browse available public tags</li>
+            <li>Check the tags you want to study</li>
+            <li>Tap <strong>"Save"</strong> to assign them to your account</li>
+        </ol>
+    </div>
+
+    <h2 id="quiz">❓ Quiz Tab - Test Your Knowledge</h2>
+    
+    <p>Take quizzes to test your spelling skills and track your progress.</p>
+
+    <h3>Taking a Quiz</h3>
+    <div class="steps">
+        <ol>
+            <li>Go to the <strong>Quiz</strong> tab</li>
+            <li>Select the tag/word list to quiz from</li>
+            <li>Listen to the word and type your answer</li>
+            <li>Submit your answer</li>
+            <li>Continue until the quiz is complete</li>
+            <li>View your score and results</li>
+        </ol>
+    </div>
+
+    <h3>Quiz Results</h3>
+    <p>After completing a quiz, you'll see:</p>
+    <ul>
+        <li><strong>Score</strong> - Percentage of correct answers</li>
+        <li><strong>Correct Words</strong> - Words you spelled correctly</li>
+        <li><strong>Incorrect Words</strong> - Words to practice more</li>
+    </ul>
+
+    <div class="tip">Review your incorrect words after each quiz and practice them in the Study tab!</div>
+
+    <h2 id="more">⚙️ More Tab - Settings & Account</h2>
+    
+    <p>Access additional features and customize your experience.</p>
+
+    <h3>Available Options</h3>
+    
+    <div class="feature-card">
+        <h4><span class="icon">👤</span> My Account</h4>
+        <p>View your account information and delete your account if needed.</p>
+    </div>
+
+    <div class="feature-card">
+        <h4><span class="icon">⚙️</span> Settings</h4>
+        <p>Customize your study experience:</p>
+        <ul>
+            <li><strong>Study Words Source</strong> - Choose "Current Tag" or "All Tags"</li>
+            <li><strong>Number of Study Words</strong> - How many words per session (default: 10)</li>
+            <li><strong>Spell Repeat Count</strong> - How many times to practice each word (default: 3)</li>
+            <li><strong>Voice Selection</strong> - Choose the pronunciation voice</li>
+            <li><strong>AI Configuration</strong> - Set up AI for word definitions</li>
+        </ul>
+    </div>
+
+    <div class="feature-card">
+        <h4><span class="icon">📋</span> Assign Class</h4>
+        <p>Browse and assign available word lists to your account.</p>
+    </div>
+
+    <div class="feature-card">
+        <h4><span class="icon">🏆</span> Leaderboard</h4>
+        <p>See how you rank compared to other users.</p>
+    </div>
+
+    <div class="feature-card">
+        <h4><span class="icon">📜</span> Legal</h4>
+        <p>View Privacy Policy, Terms of Service, and Data Deletion information.</p>
+    </div>
+
+    <h3>AI Features (Optional)</h3>
+    <p>Configure AI to automatically generate word definitions and example sentences:</p>
+    <div class="steps">
+        <ol>
+            <li>Go to <strong>Settings</strong> → <strong>AI Configuration</strong></li>
+            <li>Enter your API key (OpenAI, Claude, or other supported providers)</li>
+            <li>Save your settings</li>
+            <li>AI definitions will appear when adding or viewing words</li>
+        </ol>
+    </div>
+
+    <h2 id="tips">💡 Tips for Success</h2>
+    
+    <div class="feature-card">
+        <h4>1. Practice Regularly</h4>
+        <p>Short, daily practice sessions are more effective than long, occasional ones. Aim for 10-15 minutes each day.</p>
+    </div>
+
+    <div class="feature-card">
+        <h4>2. Use the Repeat Feature</h4>
+        <p>Set your Spell Repeat Count to 3 or more. Repetition helps commit words to long-term memory.</p>
+    </div>
+
+    <div class="feature-card">
+        <h4>3. Listen Carefully</h4>
+        <p>Pay attention to pronunciation. Break words into syllables to help remember spelling patterns.</p>
+    </div>
+
+    <div class="feature-card">
+        <h4>4. Review Mistakes</h4>
+        <p>After each quiz, review the words you got wrong. Create a "Difficult Words" tag for extra practice.</p>
+    </div>
+
+    <div class="feature-card">
+        <h4>5. Add Your Own Words</h4>
+        <p>When you encounter new words in school or reading, add them to the app right away.</p>
+    </div>
+
+    <h2 id="faq">❔ Frequently Asked Questions</h2>
+    
+    <h3>Q: How do I reset my password?</h3>
+    <p>Currently, password reset is not available through the app. Please contact support for assistance.</p>
+
+    <h3>Q: Can I use the app offline?</h3>
+    <p>The app requires an internet connection to sync your data and access word lists.</p>
+
+    <h3>Q: How do I delete my account?</h3>
+    <p>Go to <strong>More</strong> → <strong>My Account</strong> → <strong>Delete Account</strong>. This will permanently delete all your data.</p>
+
+    <h3>Q: Can I share my word lists with others?</h3>
+    <p>Yes! When creating a tag, select <strong>"Public"</strong> to make it visible to all users. They can then assign your word list to their account.</p>
+
+    <h3>Q: Why can't I access some features?</h3>
+    <p>Some features (My Words, Quiz) require you to be logged in. Create an account or log in to access all features.</p>
+
+    <h3>Q: How do I change the voice?</h3>
+    <p>Go to <strong>More</strong> → <strong>Settings</strong> and select your preferred voice from the Voice Selection dropdown.</p>
+
+    <h2 id="support">📧 Support</h2>
+    
+    <div class="contact">
+        <p>Need help? Have questions or feedback? Contact us at:</p>
+        <p><strong>Email:</strong> <a href="mailto:713.zhao@gmail.com">713.zhao@gmail.com</a></p>
+        <p>We typically respond within 1-2 business days.</p>
+    </div>
+
+    <hr style="margin-top: 40px;">
+    <p style="text-align: center; color: #666;">Thank you for using Spell App! Happy spelling! 📚✨</p>
+</body>
+</html>
