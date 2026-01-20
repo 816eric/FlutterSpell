@@ -76,6 +76,7 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
   final TextEditingController _tagController = TextEditingController();
   String _selectedLanguage = 'en';
   File? _imageFile;
+  bool _isPublicTag = false; // Default to private tag
 
   final List<String> languages = ['en', 'zh', 'other'];
 
@@ -204,6 +205,24 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
         // Optionally handle errors for individual words
       }
     }
+    
+    // If public tag is selected and tag is not empty, also assign the tag to ADMIN
+    if (_isPublicTag && tag.isNotEmpty) {
+      try {
+        // Get all tags to find the tag ID
+        final allTags = await SpellApiService.getAllTags();
+        final matchingTag = allTags.firstWhere(
+          (t) => (t['tag'] ?? t['name'] ?? '').toString().toUpperCase() == tag.toUpperCase(),
+          orElse: () => {},
+        );
+        if (matchingTag.isNotEmpty && matchingTag['id'] != null) {
+          await SpellApiService.assignTagsToUser('ADMIN', [matchingTag['id']]);
+        }
+      } catch (e) {
+        print('Failed to assign public tag to ADMIN: $e');
+      }
+    }
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Added $successCount word(s)/sentence(s)")),
     );
@@ -240,6 +259,25 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
                 selection: TextSelection.collapsed(offset: cursorPos),
               );
             },
+          ),
+          const SizedBox(height: 10),
+          // Public/Private tag radio buttons
+          Row(
+            children: [
+              const Text("Tag Visibility: ", style: TextStyle(fontWeight: FontWeight.bold)),
+              Radio<bool>(
+                value: false,
+                groupValue: _isPublicTag,
+                onChanged: (value) => setState(() => _isPublicTag = value!),
+              ),
+              const Text("Private (me only)"),
+              Radio<bool>(
+                value: true,
+                groupValue: _isPublicTag,
+                onChanged: (value) => setState(() => _isPublicTag = value!),
+              ),
+              const Text("Public (everyone)"),
+            ],
           ),
           const SizedBox(height: 10),
           Row(
