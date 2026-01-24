@@ -33,51 +33,85 @@ class OverflowMenu extends StatelessWidget {
               );
             },
           ),
+        if (!isLoggedIn)
+          ListTile(
+            leading: const Icon(Icons.account_circle, color: Colors.grey),
+            title: const Text("User Account"),
+            subtitle: const Text("Login required"),
+            onTap: () {
+              Navigator.of(context).pushReplacementNamed('/login');
+            },
+          ),
         ListTile(
-          leading: const Icon(Icons.card_giftcard, color: Colors.pink),
+          leading: Icon(Icons.card_giftcard, color: isLoggedIn ? Colors.pink : Colors.grey),
           title: const Text("Rewards & Redeem"),
+          subtitle: isLoggedIn ? null : const Text("Login required"),
           onTap: () {
-            Navigator.of(context).pushNamed('/reward', arguments: userName);
+            if (isLoggedIn) {
+              Navigator.of(context).pushNamed('/reward', arguments: userName);
+            } else {
+              Navigator.of(context).pushReplacementNamed('/login');
+            }
           },
         ),
         ListTile(
-          leading: const Icon(Icons.history, color: Colors.indigo),
+          leading: Icon(Icons.history, color: isLoggedIn ? Colors.indigo : Colors.grey),
           title: const Text("Login History"),
+          subtitle: isLoggedIn ? null : const Text("Login required"),
           onTap: () {
-            Navigator.of(context).pushNamed('/history', arguments: userName);
+            if (isLoggedIn) {
+              Navigator.of(context).pushNamed('/history', arguments: userName);
+            } else {
+              Navigator.of(context).pushReplacementNamed('/login');
+            }
           },
         ),
         ListTile(
-          leading: const Icon(Icons.book_outlined, color: Colors.green),
+          leading: Icon(Icons.book_outlined, color: isLoggedIn ? Colors.green : Colors.grey),
           title: const Text("Study History"),
+          subtitle: isLoggedIn ? null : const Text("Login required"),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => StudyHistoryPage(userName: userName),
-              ),
-            );
+            if (isLoggedIn) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => StudyHistoryPage(userName: userName),
+                ),
+              );
+            } else {
+              Navigator.of(context).pushReplacementNamed('/login');
+            }
           },
         ),
         ListTile(
-          leading: const Icon(Icons.lightbulb_outline, color: Colors.amber),
+          leading: Icon(Icons.lightbulb_outline, color: isLoggedIn ? Colors.amber : Colors.grey),
           title: const Text("Study Suggestions"),
+          subtitle: isLoggedIn ? null : const Text("Login required"),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => StudySuggestionPage(userName: userName),
-              ),
-            );
+            if (isLoggedIn) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => StudySuggestionPage(userName: userName),
+                ),
+              );
+            } else {
+              Navigator.of(context).pushReplacementNamed('/login');
+            }
           },
         ),
         ListTile(
-          leading: const Icon(Icons.emoji_events, color: Colors.orange),
+          leading: Icon(Icons.emoji_events, color: isLoggedIn ? Colors.orange : Colors.grey),
           title: const Text("Leaderboard"),
+          subtitle: isLoggedIn ? null : const Text("Login required"),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => LeaderboardPage(currentUserName: userName),
-              ),
-            );
+            if (isLoggedIn) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => LeaderboardPage(currentUserName: userName),
+                ),
+              );
+            } else {
+              Navigator.of(context).pushReplacementNamed('/login');
+            }
           },
         ),
         ListTile(

@@ -183,19 +183,14 @@ class _MainTabControllerState extends State<MainTabController> {
     
     print('DEBUG _onItemTapped: index=$index, savedUser=$savedUser, isLoggedIn=$isLoggedIn');
     
-    if (index == 4) { // 'More' tab
-      if (isLoggedIn) {
-        if (savedUser != userName) {
-          print('DEBUG: Updating userName from $userName to $savedUser');
-          _onUserLogin(savedUser);
-        }
-        setState(() => _selectedIndex = index);
-      } else {
-        // Not logged in - go to login page
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/login');
-        }
+    if (index == 4) { // 'More' tab - accessible to all users including Guest
+      if (isLoggedIn && savedUser != userName) {
+        print('DEBUG: Updating userName from $userName to $savedUser');
+        _onUserLogin(savedUser);
+      } else if (!isLoggedIn) {
+        setState(() { userName = "Guest"; });
       }
+      setState(() => _selectedIndex = index);
     } else if (index == 2 || index == 3) { // My Words, Quiz tabs - require login
       if (isLoggedIn) {
         if (savedUser != userName) {

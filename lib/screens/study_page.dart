@@ -64,7 +64,8 @@ class _StudyPageState extends State<StudyPage> {
     // Save study history when user changes (tab switch/logout)
     if (userChanged && _studyRecords.isNotEmpty) {
       final studiedCount = _studyRecords.length;
-      final displayPoints = studiedCount > 0 ? ((studiedCount ~/ 5) > 0 ? (studiedCount ~/ 5) : 1) : 0;
+      final isGuest = _effectiveUserName.isEmpty || _effectiveUserName == 'Guest';
+      final displayPoints = (!isGuest && studiedCount > 0) ? ((studiedCount ~/ 5) > 0 ? (studiedCount ~/ 5) : 1) : 0;
       // Save asynchronously and then show a dialog with points feedback
       Future.microtask(() async {
         await _saveStudyHistory();
@@ -77,24 +78,58 @@ class _StudyPageState extends State<StudyPage> {
               content: Text('You earned +$displayPoints point${displayPoints == 1 ? '' : 's'} for studying $studiedCount word${studiedCount == 1 ? '' : 's'}.')
             ),
           );
+        } else if (isGuest && studiedCount > 0) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Session Complete'),
+              content: Text('You studied $studiedCount word${studiedCount == 1 ? '' : 's'}. Login to earn points!')
+            ),
+          );
         }
       });
     }
     
     _effectiveUserName = newUserName;
+    // Guest users can use Study tab, but won't have personalized deck
+    // They'll use ADMIN's tags from Home page
     if (_effectiveUserName.isEmpty || _effectiveUserName == 'Guest') {
-      if (!_shouldShowLogin) {
-        _shouldShowLogin = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please Login first')),
-          );
-        });
-      }
+      // For guest users, load deck using ADMIN's settings
       setState(() {
-        _loading = false;
+        _loading = true;
         _settingsLoaded = false;
-        _cards = [];
+      });
+      // Use Future.microtask to load deck asynchronously
+      Future.microtask(() async {
+        // Get the guest's selected tag from login history first
+        String? guestTag;
+        try {
+          guestTag = await SpellApiService.getLatestLoginTag('Guest');
+        } catch (e) {
+          print('Failed to get guest tag: $e');
+          guestTag = null;
+        }
+        
+        // Load deck as ADMIN but use guest's selected tag
+        final originalUser = _effectiveUserName;
+        _effectiveUserName = 'ADMIN';
+        
+        // Load settings
+        setState(() { _loading = true; });
+        try {
+          // Use default settings for guest (no need to fetch ADMIN's profile)
+          _deckLimit = 10;
+          _deckTag = guestTag; // Use guest's selected tag
+          _settingsLoaded = true;
+          await _loadDeck();
+        } catch (e) {
+          _deckLimit = 10;
+          _deckTag = guestTag;
+          _settingsLoaded = true;
+          await _loadDeck();
+        }
+        
+        _effectiveUserName = originalUser;
       });
     } else {
       if (_shouldShowLogin) {
@@ -344,20 +379,23 @@ class _StudyPageState extends State<StudyPage> {
         _loadingBackCard = false;
       });
     } else {
-      // Only submit review after last card
-      try {
-        await SpellApiService.submitReview(widget.userName, card['word_id'], quality);
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit review: $e'))
-        );
-        return;
+      // Only submit review after last card (skip for guest users)
+      final isGuest = _effectiveUserName.isEmpty || _effectiveUserName == 'Guest';
+      if (!isGuest) {
+        try {
+          await SpellApiService.submitReview(widget.userName, card['word_id'], quality);
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to submit review: $e'))
+          );
+          return;
+        }
       }
       
       // Calculate points to display (awarded in _saveStudyHistory)
       final studiedCount = _studyRecords.length;
-      final displayPoints = studiedCount > 0 ? ((studiedCount ~/ 5) > 0 ? (studiedCount ~/ 5) : 1) : 0;
+      final displayPoints = (!isGuest && studiedCount > 0) ? ((studiedCount ~/ 5) > 0 ? (studiedCount ~/ 5) : 1) : 0;
 
       // Save study history when session completes
       await _saveStudyHistory();
@@ -366,7 +404,9 @@ class _StudyPageState extends State<StudyPage> {
       if (!mounted) return;
       final dialogMessage = displayPoints > 0
           ? 'Great job. You earned +$displayPoints point${displayPoints == 1 ? '' : 's'} for studying $studiedCount word${studiedCount == 1 ? '' : 's'}.\n\nCome back tomorrow for more.'
-          : 'Great job. Come back tomorrow for more.';
+          : isGuest && studiedCount > 0
+              ? 'Great job! You studied $studiedCount word${studiedCount == 1 ? '' : 's'}.\n\nLogin to earn points and track your progress!'
+              : 'Great job. Come back tomorrow for more.';
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
