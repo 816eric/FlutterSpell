@@ -36,7 +36,7 @@ class _QuizPageState extends State<QuizPage> {
     setState(() { _loading = true; _errorMessage = null; });
     
     final effectiveUserName = (widget.userName.isEmpty || widget.userName == 'Guest') 
-        ? 'admin' 
+        ? 'ADMIN' 
         : widget.userName;
 
     try {

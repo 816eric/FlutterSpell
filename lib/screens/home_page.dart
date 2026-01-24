@@ -106,7 +106,7 @@ class _HomePageState extends State<HomePage> {
     try {
       // Only fetch profile if user is not empty and not 'Guest'
       Map<String, dynamic> profile = {};
-      String tagUser = (user.isEmpty || user == 'Guest') ? 'admin' : user;
+      String tagUser = (user.isEmpty || user == 'Guest') ? 'ADMIN' : user;
       if (user.isNotEmpty && user != 'Guest') {
         profile = await SpellApiService.getUserProfile(user);
         // Load spellRepeatCount from backend settings
@@ -124,7 +124,7 @@ class _HomePageState extends State<HomePage> {
       } else {
         spellRepeatCount = 2;
       }
-      // Always use getUserTags, but use 'admin' for Guest/empty
+      // Always use getUserTags, but use 'ADMIN' for Guest/empty
       final userTags = await SpellApiService.getUserTags(tagUser);
       print(userTags);
       String? latestTag;
@@ -172,8 +172,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> fetchWords(String tag) async {
-    // If user is Guest, fetch words as Admin
-    final user = (_effectiveUserName == 'Guest') ? 'admin' : _effectiveUserName;
+    // If user is Guest, fetch words as ADMIN
+    final user = (_effectiveUserName == 'Guest') ? 'ADMIN' : _effectiveUserName;
     final fetchedWords = await SpellApiService.getWords(user, tag);
     if (!mounted) return;
     setState(() {

@@ -8,8 +8,8 @@ class SpellApiService {
   // --- All static methods must be inside this class body ---
   
   //static final String baseUrl = "https://spellbackend.onrender.com/";
-  //static final String baseUrl = "http://127.0.0.1:8000/";
-  static final String baseUrl = "https://spellbackend.fly.dev/";
+  static final String baseUrl = "http://127.0.0.1:8000/";
+  //static final String baseUrl = "https://spellbackend.fly.dev/";
 
   //create the static methond below this line
 
@@ -36,9 +36,16 @@ class SpellApiService {
   }
 
   // Static method to create a user word
-  static Future<void> createUserWord(String userName, Map<String, dynamic> wordData, {String? tag}) async {
+  static Future<void> createUserWord(String userName, Map<String, dynamic> wordData, {String? tag, bool isPublic = false}) async {
+    final queryParams = <String, String>{};
+    if (tag != null && tag.isNotEmpty) {
+      queryParams['tag'] = tag;
+    }
+    if (isPublic) {
+      queryParams['is_public'] = 'true';
+    }
     final uri = Uri.parse('${SpellApiService.baseUrl}words/users/$userName/words/')
-      .replace(queryParameters: tag != null && tag.isNotEmpty ? {'tag': tag} : null);
+      .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
     final response = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},

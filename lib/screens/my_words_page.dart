@@ -199,27 +199,15 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
         "language": lang
       };
       try {
-        await SpellApiService.createUserWord(widget.userName, wordData, tag: tag.isNotEmpty ? tag : null);
+        await SpellApiService.createUserWord(
+          widget.userName, 
+          wordData, 
+          tag: tag.isNotEmpty ? tag : null,
+          isPublic: _isPublicTag
+        );
         successCount++;
       } catch (e) {
         // Optionally handle errors for individual words
-      }
-    }
-    
-    // If public tag is selected and tag is not empty, also assign the tag to ADMIN
-    if (_isPublicTag && tag.isNotEmpty) {
-      try {
-        // Get all tags to find the tag ID
-        final allTags = await SpellApiService.getAllTags();
-        final matchingTag = allTags.firstWhere(
-          (t) => (t['tag'] ?? t['name'] ?? '').toString().toUpperCase() == tag.toUpperCase(),
-          orElse: () => {},
-        );
-        if (matchingTag.isNotEmpty && matchingTag['id'] != null) {
-          await SpellApiService.assignTagsToUser('ADMIN', [matchingTag['id']]);
-        }
-      } catch (e) {
-        print('Failed to assign public tag to ADMIN: $e');
       }
     }
     
