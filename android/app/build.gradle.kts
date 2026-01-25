@@ -18,7 +18,7 @@ val keystoreProperties = Properties().apply {
 
 android {
     ndkVersion = "27.0.12077973"
-    namespace = "com.eric816.spell"
+    namespace = "com.aispell"
     compileSdk = flutter.compileSdkVersion
     //ndkVersion = flutter.ndkVersion
 
@@ -33,7 +33,7 @@ android {
 
     defaultConfig {
         // Updated to unique application ID for Play Store compliance
-        applicationId = "com.eric816.spell"
+        applicationId = "com.aispell"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
