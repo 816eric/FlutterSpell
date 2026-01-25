@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/spell_api_service.dart';
 import '../services/tts_helper.dart';
 import '../services/ai_service.dart';
@@ -402,6 +406,10 @@ class _StudyPageState extends State<StudyPage> {
       
       setState(() { _revealed = false; });
       if (!mounted) return;
+      
+      // Capture the messenger before showing dialog
+      final messenger = ScaffoldMessenger.of(context);
+      
       final dialogMessage = displayPoints > 0
           ? 'Great job. You earned +$displayPoints point${displayPoints == 1 ? '' : 's'} for studying $studiedCount word${studiedCount == 1 ? '' : 's'}.\n\nCome back tomorrow for more.'
           : isGuest && studiedCount > 0
@@ -413,6 +421,172 @@ class _StudyPageState extends State<StudyPage> {
           title: const Text('All done for today!'),
           content: Text(dialogMessage),
           actions: [
+            if (studiedCount > 0)
+              TextButton.icon(
+                onPressed: () async {
+                  final shareText = displayPoints > 0
+                      ? '🎯 Just studied $studiedCount word${studiedCount == 1 ? '' : 's'} and earned $displayPoints point${displayPoints == 1 ? '' : 's'}! 🚀\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/'
+                      : '🎯 Just studied $studiedCount word${studiedCount == 1 ? '' : 's'} on AI Spell! 🚀\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/';
+                  
+                  final encoded = Uri.encodeComponent(shareText);
+                  
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Share your achievement'),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              leading: const Icon(Icons.chat_bubble, color: Colors.green),
+                              title: const Text('WhatsApp'),
+                              onTap: () async {
+                                final url = Uri.parse('https://wa.me/?text=$encoded');
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                                } else {
+                                  await Clipboard.setData(ClipboardData(text: shareText));
+                                  if (ctx.mounted) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      const SnackBar(content: Text('WhatsApp not available. Copied to clipboard!')),
+                                    );
+                                  }
+                                }
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.chat, color: Color(0xFF09B83E)),
+                              title: const Text('WeChat'),
+                              onTap: () async {
+                                Navigator.pop(ctx);
+                                await Clipboard.setData(ClipboardData(text: shareText));
+                                
+                                // Try to open WeChat app
+                                final wechatUrl = Uri.parse('weixin://');
+                                if (await canLaunchUrl(wechatUrl)) {
+                                  await launchUrl(wechatUrl, mode: LaunchMode.externalApplication);
+                                }
+                                
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('✓ Text copied! Paste in WeChat to share.'),
+                                    duration: Duration(seconds: 3),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.facebook, color: Colors.blue),
+                              title: const Text('Facebook'),
+                              onTap: () async {
+                                Navigator.pop(ctx);
+                                await Clipboard.setData(ClipboardData(text: shareText));
+                                
+                                // Try to open Facebook app
+                                final fbUrl = Uri.parse('fb://facewebmodal/f?href=https://www.facebook.com');
+                                if (await canLaunchUrl(fbUrl)) {
+                                  await launchUrl(fbUrl, mode: LaunchMode.externalApplication);
+                                } else {
+                                  // Fallback to web
+                                  final webUrl = Uri.parse('https://www.facebook.com');
+                                  await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+                                }
+                                
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('✓ Text copied! Paste in Facebook to share.'),
+                                    duration: Duration(seconds: 3),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.alternate_email, color: Colors.blue),
+                              title: const Text('Twitter / X'),
+                              onTap: () async {
+                                final url = Uri.parse('https://twitter.com/intent/tweet?text=$encoded');
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                                }
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.video_library, color: Colors.black),
+                              title: const Text('TikTok'),
+                              onTap: () async {
+                                Navigator.pop(ctx);
+                                await Clipboard.setData(ClipboardData(text: shareText));
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('✓ Copied! Now open TikTok and paste to share.'),
+                                    duration: Duration(seconds: 3),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.book, color: Colors.red),
+                              title: const Text('Red Note (小红书)'),
+                              onTap: () async {
+                                Navigator.pop(ctx);
+                                await Clipboard.setData(ClipboardData(text: shareText));
+                                
+                                // Try to open Red Note app
+                                final xhsUrl = Uri.parse('xhsdiscover://');
+                                if (await canLaunchUrl(xhsUrl)) {
+                                  await launchUrl(xhsUrl, mode: LaunchMode.externalApplication);
+                                }
+                                
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('✓ Text copied! Paste in Red Note to share.'),
+                                    duration: Duration(seconds: 3),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.mail, color: Colors.grey),
+                              title: const Text('Email'),
+                              onTap: () async {
+                                final url = Uri.parse('mailto:?subject=Check out AI Spell!&body=$encoded');
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url);
+                                }
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.copy),
+                              title: const Text('Copy to clipboard'),
+                              onTap: () async {
+                                Navigator.pop(ctx);
+                                await Clipboard.setData(ClipboardData(text: shareText));
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('✓ Copied to clipboard!'),
+                                    duration: Duration(seconds: 2),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.share),
+                label: const Text('Share'),
+              ),
             TextButton(
               onPressed: () { Navigator.of(context).pop(); },
               child: const Text('OK'),
