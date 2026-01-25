@@ -8,6 +8,7 @@ import '../services/spell_api_service.dart';
 import '../services/tts_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'my_words_page.dart';
+import '../l10n/app_localizations.dart';
 // For url_launcher compatibility with web, use launch and canLaunch with String
 
 class HomePage extends StatefulWidget {
@@ -149,8 +150,9 @@ class _HomePageState extends State<HomePage> {
         // Show SnackBar and navigate to My Words page so user can add tags
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
+          final localizations = AppLocalizations.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please add words/tags in My Words page.')),
+            SnackBar(content: Text(localizations?.pleaseAddWords ?? 'Please add words/tags in My Words page.')),
           );
           Navigator.of(context).push(MaterialPageRoute(builder: (_) => MyWordsPage(userName: user)));
         });
@@ -232,17 +234,18 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final word = words.isNotEmpty ? words[currentIndex]['text'] : '';
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Spell Practice'),
+        title: Text(localizations?.appTitle ?? 'Spell Practice'),
         backgroundColor: Colors.blueAccent,
         actions: [
           Row(
             children: [
               Padding(
                 padding: const EdgeInsets.only(right: 4),
-                child: Text('Download Apps', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text(localizations?.downloadApps ?? 'Download Apps', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
               IconButton(
                 icon: const Icon(Icons.android, color: Colors.green),
@@ -253,7 +256,7 @@ class _HomePageState extends State<HomePage> {
                     await launch(url);
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Could not open link')),
+                      SnackBar(content: Text(localizations?.couldNotOpenLink ?? 'Could not open link')),
                     );
                   }
                 },
@@ -272,7 +275,8 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("👋 Hello, $_effectiveUserName! You have $points points.",
+                Text(
+                  localizations?.youHavePoints.replaceAll('{name}', _effectiveUserName).replaceAll('{points}', points.toString()) ?? "$_effectiveUserName, you have $points points.",
                   style: const TextStyle(fontSize: 18),
                   textAlign: TextAlign.center,
                 ),
@@ -281,7 +285,7 @@ class _HomePageState extends State<HomePage> {
                   builder: (context, constraints) {
                     return DropdownButton<String>(
                       value: selectedTag,
-                      hint: const Text("Select Tag"),
+                      hint: Text(localizations?.selectTag ?? "Select Tag"),
                       isExpanded: true,
                       items: tags.map((tag) {
                         return DropdownMenuItem(value: tag, child: Text(tag));
@@ -308,7 +312,7 @@ class _HomePageState extends State<HomePage> {
                       style: ElevatedButton.styleFrom(
                         textStyle: const TextStyle(fontSize: 13), 
                       ),
-                      child: const Text("Show me the word"),
+                      child: Text(localizations?.showMeTheWord ?? "Show me the word"),
                     ),
                   )
                 else
@@ -330,7 +334,7 @@ class _HomePageState extends State<HomePage> {
                           textStyle: const TextStyle(fontSize: 20), 
                           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                         ),
-                        child: const Text("Previous"),
+                        child: Text(localizations?.previous ?? "Previous"),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -342,7 +346,7 @@ class _HomePageState extends State<HomePage> {
                           textStyle: const TextStyle(fontSize: 20),
                           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                         ),
-                        child: const Text("Play"),
+                        child: Text(localizations?.play ?? "Play"),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -354,7 +358,7 @@ class _HomePageState extends State<HomePage> {
                           textStyle: const TextStyle(fontSize: 20),
                           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                         ),
-                        child: const Text("Next"),
+                        child: Text(localizations?.next ?? "Next"),
                       ),
                     ),
                   ],

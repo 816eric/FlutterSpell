@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/spell_api_service.dart';
 import '../services/ai_service.dart';
 import '../../main.dart';
+import '../l10n/app_localizations.dart';
 
 class QuizPage extends StatefulWidget {
   final String userName;
@@ -310,34 +311,46 @@ class _QuizPageState extends State<QuizPage> {
     
     // Capture the messenger before showing dialog
     final messenger = ScaffoldMessenger.of(context);
+    final localizations = AppLocalizations.of(context);
+    final percentage = (_score / _quizzes.length * 100).toStringAsFixed(1);
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Quiz Complete!'),
+        title: Text(localizations?.quizComplete ?? 'Quiz Complete!'),
         content: Text(
-          'Your score: $_score / ${_quizzes.length}\n'
-          '${(_score / _quizzes.length * 100).toStringAsFixed(1)}%'
-          '${pointsEarned > 0 ? '\n\n🎉 Points Earned: $pointsEarned' : ''}'
+          '${localizations?.yourScore.replaceAll('{score}', percentage) ?? 'Your score: $percentage%'}\n'
+          '${pointsEarned > 0 ? '\n\n🎉 ${localizations?.pointsEarned.replaceAll('{points}', pointsEarned.toString()) ?? 'Points Earned: $pointsEarned'}' : ''}'
         ),
         actions: [
           TextButton.icon(
             onPressed: () async {
-              final percentage = (_score / _quizzes.length * 100).toStringAsFixed(1);
+              final localizations = AppLocalizations.of(context);
               final shareText = pointsEarned > 0
-                  ? '🎯 Scored $_score/${_quizzes.length} ($percentage%) and earned $pointsEarned point${pointsEarned == 1 ? '' : 's'}! 🎉\n\n🤖 AI Spell makes learning FUN & EASY! No more boring flashcards!\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/'
-                  : '🎯 Scored $_score/${_quizzes.length} ($percentage%) on AI Spell quiz! 🎉\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/';
+                  ? (localizations?.shareQuizScoreWithPoints
+                      .replaceAll('{score}', _score.toString())
+                      .replaceAll('{total}', _quizzes.length.toString())
+                      .replaceAll('{percentage}', percentage)
+                      .replaceAll('{points}', pointsEarned.toString()) ??
+                      '🎯 Scored $_score/${_quizzes.length} ($percentage%) and earned $pointsEarned point${pointsEarned == 1 ? '' : 's'}! 🎉\n\n🤖 AI Spell makes learning FUN & EASY! No more boring flashcards!\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/')
+                  : (localizations?.shareQuizScoreNoPoints
+                      .replaceAll('{score}', _score.toString())
+                      .replaceAll('{total}', _quizzes.length.toString())
+                      .replaceAll('{percentage}', percentage) ??
+                      '🎯 Scored $_score/${_quizzes.length} ($percentage%) on AI Spell quiz! 🎉\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/');
               
               final encoded = Uri.encodeComponent(shareText);
               
               showDialog(
                 context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Share your score'),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                builder: (ctx) {
+                  final localizations = AppLocalizations.of(context);
+                  return AlertDialog(
+                    title: Text(localizations?.shareYourScore ?? 'Share your score'),
+                    content: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                         ListTile(
                           leading: const Icon(Icons.chat_bubble, color: Colors.green),
                           title: const Text('WhatsApp'),
@@ -481,12 +494,13 @@ class _QuizPageState extends State<QuizPage> {
                       ],
                     ),
                   ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.share),
-            label: const Text('Share'),
-          ),
+                );
+              },
+            );
+          },
+          icon: const Icon(Icons.share),
+          label: const Text('Share'),
+        ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
@@ -813,9 +827,10 @@ class _QuizPageState extends State<QuizPage> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quiz'),
+        title: Text(localizations?.quiz ?? 'Quiz'),
         actions: [
           if (_quizzes.isNotEmpty)
             IconButton(

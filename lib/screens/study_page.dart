@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/spell_api_service.dart';
 import '../services/tts_helper.dart';
 import '../services/ai_service.dart';
+import '../l10n/app_localizations.dart';
 
   int _deckLimit = 10;
   String? _deckTag;
@@ -77,18 +78,29 @@ class _StudyPageState extends State<StudyPage> {
         if (displayPoints > 0) {
           showDialog(
             context: context,
-            builder: (_) => AlertDialog(
-              title: const Text('Session Saved'),
-              content: Text('You earned +$displayPoints point${displayPoints == 1 ? '' : 's'} for studying $studiedCount word${studiedCount == 1 ? '' : 's'}.')
-            ),
+            builder: (_) {
+              final localizations = AppLocalizations.of(context);
+              return AlertDialog(
+                title: Text(localizations?.sessionSaved ?? 'Session Saved'),
+                content: Text(localizations?.youEarnedPoints
+                    .replaceAll('{points}', displayPoints.toString())
+                    .replaceAll('{count}', studiedCount.toString()) ?? 
+                    'You earned +$displayPoints point${displayPoints == 1 ? '' : 's'} for studying $studiedCount word${studiedCount == 1 ? '' : 's'}.')
+              );
+            },
           );
         } else if (isGuest && studiedCount > 0) {
           showDialog(
             context: context,
-            builder: (_) => AlertDialog(
-              title: const Text('Session Complete'),
-              content: Text('You studied $studiedCount word${studiedCount == 1 ? '' : 's'}. Login to earn points!')
-            ),
+            builder: (_) {
+              final localizations = AppLocalizations.of(context);
+              return AlertDialog(
+                title: Text(localizations?.sessionComplete ?? 'Session Complete'),
+                content: Text(localizations?.studiedWords
+                    .replaceAll('{count}', studiedCount.toString()) ?? 
+                    'You studied $studiedCount word${studiedCount == 1 ? '' : 's'}. Login to earn points!')
+              );
+            },
           );
         }
       });
@@ -424,20 +436,28 @@ class _StudyPageState extends State<StudyPage> {
             if (studiedCount > 0)
               TextButton.icon(
                 onPressed: () async {
+                  final localizations = AppLocalizations.of(context);
                   final shareText = displayPoints > 0
-                      ? '🎯 Just studied $studiedCount word${studiedCount == 1 ? '' : 's'} and earned $displayPoints point${displayPoints == 1 ? '' : 's'}! 🚀\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/'
-                      : '🎯 Just studied $studiedCount word${studiedCount == 1 ? '' : 's'} on AI Spell! 🚀\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/';
+                      ? (localizations?.shareStudyWithPoints
+                          .replaceAll('{count}', studiedCount.toString())
+                          .replaceAll('{points}', displayPoints.toString()) ??
+                          '🎯 Just studied $studiedCount word${studiedCount == 1 ? '' : 's'} and earned $displayPoints point${displayPoints == 1 ? '' : 's'}! 🚀\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/')
+                      : (localizations?.shareStudyNoPoints
+                          .replaceAll('{count}', studiedCount.toString()) ??
+                          '🎯 Just studied $studiedCount word${studiedCount == 1 ? '' : 's'} on AI Spell! 🚀\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/');
                   
                   final encoded = Uri.encodeComponent(shareText);
                   
                   showDialog(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Share your achievement'),
-                      content: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                    builder: (ctx) {
+                      final localizations = AppLocalizations.of(context);
+                      return AlertDialog(
+                        title: Text(localizations?.shareYourAchievement ?? 'Share your achievement'),
+                        content: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                             ListTile(
                               leading: const Icon(Icons.chat_bubble, color: Colors.green),
                               title: const Text('WhatsApp'),
@@ -581,12 +601,13 @@ class _StudyPageState extends State<StudyPage> {
                           ],
                         ),
                       ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.share),
-                label: const Text('Share'),
-              ),
+                    );
+                  },
+                );
+              },
+              icon: const Icon(Icons.share),
+              label: const Text('Share'),
+            ),
             TextButton(
               onPressed: () { Navigator.of(context).pop(); },
               child: const Text('OK'),
@@ -667,10 +688,11 @@ class _StudyPageState extends State<StudyPage> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     if (_shouldShowLogin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Study')),
-        body: const Center(child: Text('Please Login first', style: TextStyle(fontSize: 20))),
+        appBar: AppBar(title: Text(localizations?.study ?? 'Study')),
+        body: Center(child: Text(localizations?.pleaseLoginFirst ?? 'Please Login first', style: TextStyle(fontSize: 20))),
       );
     }
     if (_loading) {
@@ -680,7 +702,7 @@ class _StudyPageState extends State<StudyPage> {
     }
     if (_cards.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Study')),
+        appBar: AppBar(title: Text(localizations?.study ?? 'Study')),
         body: _buildEmptyState(),
       );
     }
@@ -689,7 +711,7 @@ class _StudyPageState extends State<StudyPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Study'),
+        title: Text(localizations?.study ?? 'Study'),
         actions: [
           // Show generate back card only after user has pressed play (revealed)
           if (_hasAiKey && _revealed && !_isSentence((card['text'] as String?)?.trim() ?? ''))

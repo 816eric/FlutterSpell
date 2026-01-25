@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home_page.dart';
 import 'screens/study_page.dart';
 import 'screens/my_words_page.dart';
@@ -6,10 +7,12 @@ import 'screens/quiz_page.dart';
 import 'screens/overflow_menu.dart';
 import 'widgets/top_ad_bar.dart';
 import 'services/spell_api_service.dart';
+import 'services/language_service.dart';
 import 'screens/settings.dart';
 import 'screens/reward_page.dart';
 import 'screens/history_page.dart';
 import 'screens/login_page.dart';
+import 'l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<String?> _getLoggedInUser() async {
@@ -21,7 +24,33 @@ void main() {
   runApp(SpellApp());
 }
 
-class SpellApp extends StatelessWidget {
+class SpellApp extends StatefulWidget {
+  @override
+  State<SpellApp> createState() => _SpellAppState();
+}
+
+class _SpellAppState extends State<SpellApp> {
+  Locale _locale = const Locale('en');
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedLanguage();
+  }
+
+  Future<void> _loadSavedLanguage() async {
+    final savedLocale = await LanguageService.getSavedLanguage();
+    setState(() {
+      _locale = savedLocale;
+    });
+  }
+
+  void _changeLanguage(Locale locale) {
+    setState(() {
+      _locale = locale;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<String?>(
@@ -37,6 +66,17 @@ class SpellApp extends StatelessWidget {
         return MaterialApp(
           title: 'Spell Practice App',
           theme: ThemeData(primarySwatch: Colors.blue),
+          locale: _locale,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en'),
+            Locale('zh'),
+          ],
           home: homeWidget,
           routes: {
             '/login': (context) { print('Route /login builder'); return const LoginPage(); },
@@ -54,7 +94,7 @@ class SpellApp extends StatelessWidget {
             },
             '/settings': (context) {
               try {
-                return SettingsPage();
+                return SettingsPage(onLanguageChanged: _changeLanguage);
               } catch (e, st) {
                 print('Error building /settings: $e');
                 print(st);
@@ -217,16 +257,18 @@ class _MainTabControllerState extends State<MainTabController> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    
     // Wait for user to be loaded before showing content
     if (!_isUserLoaded) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Spell Practice")),
+        appBar: AppBar(title: Text(localizations?.appTitle ?? "Spell Practice")),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Spell Practice"), bottom: PreferredSize(preferredSize: Size.fromHeight(50), child: TopAdBar())),
+      appBar: AppBar(title: Text(localizations?.appTitle ?? "Spell Practice"), bottom: PreferredSize(preferredSize: Size.fromHeight(50), child: TopAdBar())),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -234,12 +276,12 @@ class _MainTabControllerState extends State<MainTabController> {
         onTap: _onItemTapped,
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home, color: Colors.blue), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.school, color: Colors.green), label: "Study"),
-          BottomNavigationBarItem(icon: Icon(Icons.book, color: Colors.orange), label: "My Words"),
-          BottomNavigationBarItem(icon: Icon(Icons.quiz, color: Colors.purple), label: "Quiz"),
-          BottomNavigationBarItem(icon: Icon(Icons.more_horiz, color: Colors.teal), label: "More"),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.home, color: Colors.blue), label: localizations?.home ?? "Home"),
+          BottomNavigationBarItem(icon: const Icon(Icons.school, color: Colors.green), label: localizations?.study ?? "Study"),
+          BottomNavigationBarItem(icon: const Icon(Icons.book, color: Colors.orange), label: localizations?.myWords ?? "My Words"),
+          BottomNavigationBarItem(icon: const Icon(Icons.quiz, color: Colors.purple), label: localizations?.quiz ?? "Quiz"),
+          BottomNavigationBarItem(icon: const Icon(Icons.more_horiz, color: Colors.teal), label: localizations?.more ?? "More"),
         ],
       ),
     );

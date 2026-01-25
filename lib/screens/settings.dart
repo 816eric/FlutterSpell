@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../services/spell_api_service.dart';
+import '../services/language_service.dart';
+import '../l10n/app_localizations.dart';
 import 'ai_config_page.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({Key? key}) : super(key: key);
+  final Function(Locale)? onLanguageChanged;
+  
+  const SettingsPage({Key? key, this.onLanguageChanged}) : super(key: key);
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -23,6 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   List<Map<String, String>> availableVoices = [];
   Map<String, String>? selectedVoice;
+  String selectedLanguageCode = 'en';
   static const String loggedInUserKey = 'loggedInUser';
 
   @override
@@ -35,6 +40,37 @@ class _SettingsPageState extends State<SettingsPage> {
     await _loadLoggedInUser();
     await _loadVoices();
     await _loadUserSettings();
+    await _loadLanguage();
+  }
+
+  Future<void> _loadLanguage() async {
+    final locale = await LanguageService.getSavedLanguage();
+    setState(() {
+      selectedLanguageCode = locale.languageCode;
+    });
+  }
+
+  Future<void> _changeLanguage(String languageCode) async {
+    await LanguageService.saveLanguage(languageCode);
+    setState(() {
+      selectedLanguageCode = languageCode;
+    });
+    
+    // Notify parent to change language
+    if (widget.onLanguageChanged != null) {
+      widget.onLanguageChanged!(Locale(languageCode));
+    }
+    
+    // Show confirmation
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(languageCode == 'en' 
+              ? 'Language changed to English' 
+              : '语言已更改为中文'),
+        ),
+      );
+    }
   }
 
   Future<void> _loadLoggedInUser() async {
@@ -84,7 +120,7 @@ class _SettingsPageState extends State<SettingsPage> {
     // Guest users don't need to save settings
     if (loggedInUser == null || loggedInUser == 'Guest') {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Please login to save settings')));
+          .showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)?.pleaseLoginToSaveSettings ?? 'Please login to save settings')));
       return;
     }
     
@@ -110,11 +146,11 @@ class _SettingsPageState extends State<SettingsPage> {
         settingsError = null;
       });
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Settings saved')));
+          .showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)?.settingsSaved ?? 'Settings saved')));
     } catch (e) {
       print('DEBUG SettingsPage _saveUserSettings error: $e');
       setState(() {
-        settingsError = 'Failed to save settings: $e';
+        settingsError = '${AppLocalizations.of(context)?.failedToSaveSettings ?? "Failed to save settings"}: $e';
       });
     } finally {
       setState(() {
@@ -155,18 +191,65 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    
     return Scaffold(
-      appBar: AppBar(title: const Text("Settings")),
+      appBar: AppBar(title: Text(localizations?.settings ?? "Settings")),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
+            // Language Selection Section (available for all users)
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      localizations?.language ?? 'Language',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 18,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text(localizations?.selectLanguage ?? 'Select Language: '),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButton<String>(
+                            value: selectedLanguageCode,
+                            isExpanded: true,
+                            items: LanguageService.getSupportedLanguages()
+                                .map((lang) => DropdownMenuItem<String>(
+                                      value: lang['code'],
+                                      child: Text(lang['name'] ?? ''),
+                                    ))
+                                .toList(),
+                            onChanged: (languageCode) {
+                              if (languageCode != null) {
+                                _changeLanguage(languageCode);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             // Welcome text
             if (loggedInUser != null && loggedInUser != 'Guest')
               Padding(
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Text(
-                  'Welcome, $loggedInUser!',
+                  '${localizations?.welcome ?? "Welcome"}, $loggedInUser!',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -178,7 +261,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Text(
-                  'Welcome, Guest!',
+                  '${localizations?.welcome ?? "Welcome"}, ${localizations?.guest ?? "Guest"}!',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -200,13 +283,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Study Settings',
-                            style: TextStyle(
+                        Text(localizations?.studySettings ?? 'Study Settings',
+                            style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            const Text('Source: '),
+                            Text('${localizations?.studyWordsSource ?? "Source"}: '),
                             DropdownButton<String>(
                               value: studyWordsSource,
                               items: const [
@@ -230,7 +313,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Text('Number of Study Words: '),
+                            Text('${localizations?.numStudyWords ?? "Number of Study Words"}: '),
                             SizedBox(
                               width: 80,
                               child: TextFormField(
@@ -252,7 +335,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            const Text('Spell Repeat Count: '),
+                            Text('${localizations?.spellRepeatCount ?? "Spell Repeat Count"}: '),
                             SizedBox(
                               width: 80,
                               child: TextFormField(
@@ -274,7 +357,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: _saveUserSettings,
-                          child: const Text('Save Settings'),
+                          child: Text(localizations?.saveSettings ?? 'Save Settings'),
                         ),
                       ],
                     ),
@@ -289,13 +372,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Center(
                   child: Column(
                     children: [
-                      const Text('Please log in to customize settings'),
+                      Text(localizations?.pleaseLogInToCustomizeSettings ?? 'Please log in to customize settings'),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () {
                           Navigator.of(context).pushNamed('/login');
                         },
-                        child: const Text('Go to Login'),
+                        child: Text(localizations?.goToLogin ?? 'Go to Login'),
                       ),
                     ],
                   ),
@@ -305,13 +388,13 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
             // Voice Selection Section
             if (availableVoices.isNotEmpty) ...[
-              const Text("Chinese Voice Selection",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(localizations?.chineseVoiceSelection ?? "Chinese Voice Selection",
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               DropdownButton<Map<String, String>>(
                 value: selectedVoice,
                 isExpanded: true,
-                hint: const Text("Select Chinese Voice"),
+                hint: Text(localizations?.selectChineseVoice ?? "Select Chinese Voice"),
                 items: availableVoices.map((voice) {
                   final name = voice['name'] ?? 'Unknown';
                   final locale = voice['locale'] ?? '';

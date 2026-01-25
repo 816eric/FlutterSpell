@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/spell_api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_localizations.dart';
 
 // Multi-level tree node for tag hierarchy
 class _TagTreeNode {
@@ -73,7 +74,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
           _shouldShowLogin = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please Login first')),
+              SnackBar(content: Text(AppLocalizations.of(context)?.pleaseLoginFirst ?? 'Please Login first')),
             );
             Navigator.of(context).pushReplacementNamed('/login');
           });
@@ -100,7 +101,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
         _shouldShowLogin = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please Login first')),
+            SnackBar(content: Text(AppLocalizations.of(context)?.pleaseLoginFirst ?? 'Please Login first')),
           );
           Navigator.of(context).pushReplacementNamed('/login');
         });
@@ -279,12 +280,13 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
   Widget build(BuildContext context) {
     if (_shouldShowLogin) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Manage Exist Words/Classes")),
-        body: const Center(child: Text('Please Login first', style: TextStyle(fontSize: 20))),
+        appBar: AppBar(title: Text(AppLocalizations.of(context)?.manageExistWords ?? "Manage Exist Words/Classes")),
+        body: Center(child: Text(AppLocalizations.of(context)?.pleaseLoginFirst ?? 'Please Login first', style: TextStyle(fontSize: 20))),
       );
     }
+    final localizations = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text("Assign/Unassign Classes from Lib")),
+      appBar: AppBar(title: Text(localizations?.assignUnassignClasses ?? "Assign/Unassign Classes from Lib")),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -292,7 +294,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
           children: [
             Row(
               children: [
-                const Text("Filter Classes: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(localizations?.filterClasses ?? "Filter Classes: ", style: TextStyle(fontWeight: FontWeight.bold)),
                 Expanded(
                   child: TextField(
                     controller: _filterController,
@@ -332,20 +334,20 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text("Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(localizations?.availableClasses ?? "Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
                           _buildTagTree(availableTags, selectedAvailableTagIds, expandedAvailableGroups, false),
                           ElevatedButton(
                             onPressed: assignTags,
-                            child: const Text("Assign →"),
+                            child: Text(localizations?.assign ?? "Assign →"),
                           ),
                           divider,
-                          const Text("Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(localizations?.assignedClasses ?? "Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
                           _buildTagTree(userTags, selectedAssignedTagIds, expandedAssignedGroups, true),
                           ElevatedButton(
                             onPressed: unassignTags,
-                            child: const Text("← Unassign"),
+                            child: Text(localizations?.unassign ?? "← Unassign"),
                           ),
                         ],
                       ),
@@ -370,7 +372,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    const Text("Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    Text(localizations?.availableClasses ?? "Available Classes", style: TextStyle(fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 8),
                                     Expanded(
                                       child: Scrollbar(
@@ -384,7 +386,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                                     ),
                                     ElevatedButton(
                                       onPressed: assignTags,
-                                      child: const Text("Assign →"),
+                                      child: Text(localizations?.assign ?? "Assign →"),
                                     ),
                                   ],
                                 ),
@@ -398,7 +400,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    const Text("Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    Text(localizations?.assignedClasses ?? "Assigned Classes", style: TextStyle(fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 8),
                                     Expanded(
                                       child: Scrollbar(
@@ -412,7 +414,7 @@ class _TagAssignmentPageState extends State<TagAssignmentPage> {
                                     ),
                                     ElevatedButton(
                                       onPressed: unassignTags,
-                                      child: const Text("← Unassign"),
+                                      child: Text(localizations?.unassign ?? "← Unassign"),
                                     ),
                                   ],
                                 ),

@@ -8,9 +8,10 @@ import 'package:google_ml_kit/google_ml_kit.dart';
 // import 'package:tesseract_ocr/tesseract_ocr.dart';
 import '../services/spell_api_service.dart';
 import '../services/ai_service.dart';
-// import 'tag_manager.dart';
+// import 'package:shared_preferences/shared_preferences.dart';
 import 'tag_assignment.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_localizations.dart';
 
 class MyWordsPage extends StatefulWidget {
   final String userName;
@@ -23,16 +24,16 @@ class MyWordsPage extends StatefulWidget {
 class _MyWordsPageState extends State<MyWordsPage> {
   // int _selectedPage = 0;
 
-  final List<String> _pages = [
-    "Add My Words",
-    "Manage Exist Words/Classes"
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    final List<String> _pages = [
+      localizations?.addMyWords ?? "Add My Words",
+      localizations?.manageExistWords ?? "Manage Exist Words/Classes"
+    ];
     return Scaffold(
       appBar: AppBar(
-        title: const Text("My Words"),
+        title: Text(localizations?.myWords ?? "My Words"),
       ),
       body: ListView(
         children: List.generate(_pages.length, (index) {
@@ -92,15 +93,18 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Expanded(child: Text('Extracting words from image...')),
-            ],
-          ),
-        ),
+        builder: (_) {
+          final localizations = AppLocalizations.of(context);
+          return AlertDialog(
+            content: Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Expanded(child: Text(localizations?.extractingWords ?? 'Extracting words from image...')),
+              ],
+            ),
+          );
+        },
       );
       
       if (kIsWeb) {
@@ -141,14 +145,16 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
           }
         } catch (e) {
           print('[MyWordsPage] Error extracting words: $e');
+          final localizations = AppLocalizations.of(context);
           if (e.toString().contains('API key is not configured')) {
-            extractedText = "[Please configure AI settings first. Go to Settings > AI Configuration]";
+            extractedText = localizations?.pleaseConfigureAI ?? "[Please configure AI settings first. Go to Settings > AI Configuration]";
           } else {
-            extractedText = "[Failed to extract text: $e]";
+            extractedText = localizations?.failedToExtractText.replaceAll('{error}', e.toString()) ?? "[Failed to extract text: $e]";
           }
         }
       } else {
-        extractedText = "[OCR not supported on this platform]";
+        final localizations = AppLocalizations.of(context);
+        extractedText = localizations?.ocrNotSupported ?? "[OCR not supported on this platform]";
       }
       
       // Close loading dialog
@@ -158,27 +164,30 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
       
       await showDialog(
         context: context,
-        builder: (_) => AlertDialog(
-          title: const Text("Edit OCR Result"),
-          content: TextField(
-            controller: TextEditingController(text: extractedText),
-            maxLines: 4,
-            onChanged: (value) => extractedText = value,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {
-                  _wordController.text = extractedText;
-                  _tagController.text = "SJIJ::Px::CN/EN::Termx";
-                });
-              },
-              child: const Text("OK"),
-            )
-          ],
-        ),
+        builder: (_) {
+          final localizations = AppLocalizations.of(context);
+          return AlertDialog(
+            title: Text(localizations?.editOcrResult ?? "Edit OCR Result"),
+            content: TextField(
+              controller: TextEditingController(text: extractedText),
+              maxLines: 4,
+              onChanged: (value) => extractedText = value,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _wordController.text = extractedText;
+                    _tagController.text = "SJIJ::Px::CN/EN::Termx";
+                  });
+                },
+                child: Text(localizations?.ok ?? "OK"),
+              )
+            ],
+          );
+        },
       );
     }
   }
@@ -211,8 +220,9 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
       }
     }
     
+    final localizations = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Added $successCount word(s)/sentence(s)")),
+      SnackBar(content: Text(localizations?.addedWords.replaceAll('{count}', successCount.toString()) ?? "Added $successCount word(s)/sentence(s)")),
     );
     _wordController.clear();
     _tagController.clear();
@@ -220,14 +230,15 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text("Add My Words")),
+      appBar: AppBar(title: Text(localizations?.addMyWords ?? "Add My Words")),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           TextField(
             controller: _wordController,
-            decoration: const InputDecoration(labelText: "Word or Sentence"),
+            decoration: InputDecoration(labelText: localizations?.wordOrSentence ?? "Word or Sentence"),
           ),
           DropdownButton<String>(
             value: _selectedLanguage,
@@ -238,7 +249,7 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
           ),
           TextField(
             controller: _tagController,
-            decoration: const InputDecoration(labelText: "Suggested Tag (editable)"),
+            decoration: InputDecoration(labelText: localizations?.suggestedTag ?? "Suggested Tag (editable)"),
             textCapitalization: TextCapitalization.characters,
             onChanged: (value) {
               final cursorPos = _tagController.selection.start;
@@ -252,19 +263,19 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
           // Public/Private tag radio buttons
           Row(
             children: [
-              const Text("Tag Visibility: ", style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(localizations?.tagVisibility ?? "Tag Visibility: ", style: TextStyle(fontWeight: FontWeight.bold)),
               Radio<bool>(
                 value: false,
                 groupValue: _isPublicTag,
                 onChanged: (value) => setState(() => _isPublicTag = value!),
               ),
-              const Text("Private (me only)"),
+              Text(localizations?.privateTag ?? "Private (me only)"),
               Radio<bool>(
                 value: true,
                 groupValue: _isPublicTag,
                 onChanged: (value) => setState(() => _isPublicTag = value!),
               ),
-              const Text("Public (everyone)"),
+              Text(localizations?.publicTag ?? "Public (everyone)"),
             ],
           ),
           const SizedBox(height: 10),
@@ -274,7 +285,7 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
                 child: ElevatedButton.icon(
                   onPressed: () => pickImage(fromCamera: false),
                   icon: const Icon(Icons.image),
-                  label: const Text("Pick Image"),
+                  label: Text(localizations?.pickImage ?? "Pick Image"),
                 ),
               ),
               const SizedBox(width: 10),
@@ -282,7 +293,7 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
                 child: ElevatedButton.icon(
                   onPressed: () => pickImage(fromCamera: true),
                   icon: const Icon(Icons.camera_alt),
-                  label: const Text("Take Photo"),
+                  label: Text(localizations?.takePhoto ?? "Take Photo"),
                 ),
               ),
             ],
@@ -290,7 +301,7 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
           const SizedBox(height: 10),
           ElevatedButton(
             onPressed: submitWord,
-            child: const Text("Submit Word"),
+            child: Text(localizations?.submitWord ?? "Submit Word"),
           ),
         ],
       ),

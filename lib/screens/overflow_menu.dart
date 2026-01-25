@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../l10n/app_localizations.dart';
 import 'settings.dart';
 import 'leaderboard_page.dart';
 import 'study_history_page.dart';
@@ -16,6 +17,7 @@ class OverflowMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final isLoggedIn = userName.isNotEmpty && userName != 'Guest';
     print('DEBUG OverflowMenu.build: userName=$userName, isLoggedIn=$isLoggedIn');
 
@@ -24,7 +26,7 @@ class OverflowMenu extends StatelessWidget {
         if (isLoggedIn)
           ListTile(
             leading: const Icon(Icons.account_circle, color: Colors.blue),
-            title: const Text("User Account"),
+            title: Text(localizations?.userAccount ?? "User Account"),
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -36,16 +38,16 @@ class OverflowMenu extends StatelessWidget {
         if (!isLoggedIn)
           ListTile(
             leading: const Icon(Icons.account_circle, color: Colors.grey),
-            title: const Text("User Account"),
-            subtitle: const Text("Login required"),
+            title: Text(localizations?.userAccount ?? "User Account"),
+            subtitle: Text(localizations?.loginRequired ?? "Login required"),
             onTap: () {
               Navigator.of(context).pushReplacementNamed('/login');
             },
           ),
         ListTile(
           leading: Icon(Icons.card_giftcard, color: isLoggedIn ? Colors.pink : Colors.grey),
-          title: const Text("Rewards & Redeem"),
-          subtitle: isLoggedIn ? null : const Text("Login required"),
+          title: Text(localizations?.rewardsRedeem ?? "Rewards & Redeem"),
+          subtitle: isLoggedIn ? null : Text(localizations?.loginRequired ?? "Login required"),
           onTap: () {
             if (isLoggedIn) {
               Navigator.of(context).pushNamed('/reward', arguments: userName);
@@ -56,8 +58,8 @@ class OverflowMenu extends StatelessWidget {
         ),
         ListTile(
           leading: Icon(Icons.history, color: isLoggedIn ? Colors.indigo : Colors.grey),
-          title: const Text("Login History"),
-          subtitle: isLoggedIn ? null : const Text("Login required"),
+          title: Text(localizations?.loginHistory ?? "Login History"),
+          subtitle: isLoggedIn ? null : Text(localizations?.loginRequired ?? "Login required"),
           onTap: () {
             if (isLoggedIn) {
               Navigator.of(context).pushNamed('/history', arguments: userName);
@@ -68,8 +70,8 @@ class OverflowMenu extends StatelessWidget {
         ),
         ListTile(
           leading: Icon(Icons.book_outlined, color: isLoggedIn ? Colors.green : Colors.grey),
-          title: const Text("Study History"),
-          subtitle: isLoggedIn ? null : const Text("Login required"),
+          title: Text(localizations?.studyHistory ?? "Study History"),
+          subtitle: isLoggedIn ? null : Text(localizations?.loginRequired ?? "Login required"),
           onTap: () {
             if (isLoggedIn) {
               Navigator.of(context).push(
@@ -84,8 +86,8 @@ class OverflowMenu extends StatelessWidget {
         ),
         ListTile(
           leading: Icon(Icons.lightbulb_outline, color: isLoggedIn ? Colors.amber : Colors.grey),
-          title: const Text("Study Suggestions"),
-          subtitle: isLoggedIn ? null : const Text("Login required"),
+          title: Text(localizations?.studySuggestions ?? "Study Suggestions"),
+          subtitle: isLoggedIn ? null : Text(localizations?.loginRequired ?? "Login required"),
           onTap: () {
             if (isLoggedIn) {
               Navigator.of(context).push(
@@ -100,8 +102,8 @@ class OverflowMenu extends StatelessWidget {
         ),
         ListTile(
           leading: Icon(Icons.emoji_events, color: isLoggedIn ? Colors.orange : Colors.grey),
-          title: const Text("Leaderboard"),
-          subtitle: isLoggedIn ? null : const Text("Login required"),
+          title: Text(localizations?.leaderboard ?? "Leaderboard"),
+          subtitle: isLoggedIn ? null : Text(localizations?.loginRequired ?? "Login required"),
           onTap: () {
             if (isLoggedIn) {
               Navigator.of(context).push(
@@ -116,18 +118,14 @@ class OverflowMenu extends StatelessWidget {
         ),
         ListTile(
           leading: const Icon(Icons.settings, color: Colors.blueGrey),
-          title: const Text("Settings"),
+          title: Text(localizations?.settings ?? "Settings"),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => SettingsPage(),
-              ),
-            );
+            Navigator.of(context).pushNamed('/settings');
           },
         ),
         ListTile(
           leading: const Icon(Icons.gavel, color: Colors.orange),
-          title: const Text("Legal"),
+          title: Text(localizations?.legal ?? "Legal"),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -138,7 +136,7 @@ class OverflowMenu extends StatelessWidget {
         ),
         ListTile(
           leading: const Icon(Icons.menu_book, color: Colors.purple),
-          title: const Text("User Manual"),
+          title: Text(localizations?.userManual ?? "User Manual"),
           trailing: const Icon(Icons.open_in_new, size: 18, color: Colors.blue),
           onTap: () async {
             final uri = Uri.parse('https://aispell.pages.dev/user-manual.html');
@@ -149,8 +147,8 @@ class OverflowMenu extends StatelessWidget {
         ),
         ListTile(
           leading: const Icon(Icons.feedback, color: Colors.teal),
-          title: const Text("Suggestions & Testimonials"),
-          subtitle: const Text("Send us your feedback"),
+          title: Text(localizations?.suggestionsTestimonials ?? "Suggestions & Testimonials"),
+          subtitle: Text(localizations?.sendFeedback ?? "Send us your feedback"),
           trailing: const Icon(Icons.email, size: 18, color: Colors.red),
           onTap: () async {
             final uri = Uri.parse('mailto:713.zhao@gmail.com?subject=Spell%20App%20Feedback');
