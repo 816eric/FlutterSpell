@@ -121,5 +121,18 @@
   "shareQuizScoreWithPoints": "🎯 我的得分是 {score}/{total}（{percentage}%），获得了 {points} 积分！🎉\n\n🤖 AI Spell 让学习变得有趣且轻松！告别枯燥的闪卡！\n\n✨ 拍个照 → AI 立即捕捉单词\n🎯 个性化测验和智能学习模式\n📈 跟踪进度并赚取奖励\n🆓 100% 免费使用！\n\n学生、家长和老师的完美选择！🎓\n\n👉 立即尝试：https://aispell.pages.dev/",
   "shareQuizScoreNoPoints": "🎯 我在 AI Spell 测验中得分 {score}/{total}（{percentage}%）！🎉\n\n✨ 拍个照 → AI 立即捕捉单词\n🎯 个性化测验和智能学习模式\n📈 跟踪进度并赚取奖励\n🆓 100% 免费使用！\n\n学生、家长和老师的完美选择！🎓\n\n👉 立即尝试：https://aispell.pages.dev/",
   "shareStudyWithPoints": "🎯 我刚刚学习了 {count} 个单词，获得了 {points} 积分！🚀\n\n✨ 拍个照 → AI 立即捕捉单词\n🎯 个性化测验和智能学习模式\n📈 跟踪进度并赚取奖励\n🆓 100% 免费使用！\n\n学生、家长和老师的完美选择！🎓\n\n👉 立即尝试：https://aispell.pages.dev/",
-  "shareStudyNoPoints": "🎯 我刚刚在 AI Spell 学习了 {count} 个单词！🚀\n\n✨ 拍个照 → AI 立即捕捉单词\n🎯 个性化测验和智能学习模式\n📈 跟踪进度并赚取奖励\n🆓 100% 免费使用！\n\n学生、家长和老师的完美选择！🎓\n\n👉 立即尝试：https://aispell.pages.dev/"
+  "shareStudyNoPoints": "🎯 我刚刚在 AI Spell 学习了 {count} 个单词！🚀\n\n✨ 拍个照 → AI 立即捕捉单词\n🎯 个性化测验和智能学习模式\n📈 跟踪进度并赚取奖励\n🆓 100% 免费使用！\n\n学生、家长和老师的完美选择！🎓\n\n👉 立即尝试：https://aispell.pages.dev/",
+  "userName": "用户名",
+  "password": "密码",
+  "loginAsGuest": "以访客身份登录",
+  "register": "注册",
+  "pleaseEnterBothFields": "请输入用户名和密码。",
+  "incorrectCredentials": "用户名或密码不正确。",
+  "loginFailed": "登录失败。",
+  "confirmPassword": "确认密码",
+  "grade": "年级",
+  "allFieldsRequired": "所有字段都是必填的。",
+  "passwordsDoNotMatch": "密码不匹配。",
+  "registrationFailed": "注册失败：{error}",
+  "usernameAlreadyExists": "用户名已存在。请选择其他用户名。"
 }

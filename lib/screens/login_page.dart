@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/spell_api_service.dart';
+import '../l10n/app_localizations.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -26,10 +27,11 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _handleLogin() async {
     setState(() { _loading = true; _error = ''; });
+    final localizations = AppLocalizations.of(context);
     final name = _nameController.text.trim();
     final password = _passwordController.text;
     if (name.isEmpty || password.isEmpty) {
-      setState(() { _error = 'Please enter both user name and password.'; _loading = false; });
+      setState(() { _error = localizations?.pleaseEnterBothFields ?? 'Please enter both user name and password.'; _loading = false; });
       return;
     }
     try {
@@ -39,10 +41,10 @@ class _LoginPageState extends State<LoginPage> {
         await prefs.setString('loggedInUser', name);
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
-        setState(() { _error = 'Incorrect user name or password.'; });
+        setState(() { _error = localizations?.incorrectCredentials ?? 'Incorrect user name or password.'; });
       }
     } catch (e) {
-      setState(() { _error = 'Login failed.'; });
+      setState(() { _error = localizations?.loginFailed ?? 'Login failed.'; });
     } finally {
       setState(() { _loading = false; });
     }
@@ -62,6 +64,7 @@ class _LoginPageState extends State<LoginPage> {
     String? previousGrade,
   }) async {
     setState(() { _loading = true; _error = ''; });
+    final localizations = AppLocalizations.of(context);
     final TextEditingController _registerNameController = TextEditingController(text: previousName ?? _nameController.text);
     final TextEditingController _registerPasswordController = TextEditingController(text: previousPassword ?? _passwordController.text);
     final TextEditingController _registerConfirmController = TextEditingController(text: previousConfirmPassword ?? '');
@@ -87,14 +90,14 @@ class _LoginPageState extends State<LoginPage> {
               }
             });
             return AlertDialog(
-              title: const Text('Register'),
+              title: Text(localizations?.register ?? 'Register'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
                     controller: _registerNameController,
                     focusNode: _dialogNameFocus,
-                    decoration: const InputDecoration(labelText: 'User Name *'),
+                    decoration: InputDecoration(labelText: '${localizations?.userName ?? 'User Name'} *'),
                     textCapitalization: TextCapitalization.characters,
                     onChanged: (value) {
                       final cursorPos = _registerNameController.selection.start;
@@ -106,17 +109,17 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   TextField(
                     controller: _registerPasswordController,
-                    decoration: const InputDecoration(labelText: 'Password *'),
+                    decoration: InputDecoration(labelText: '${localizations?.password ?? 'Password'} *'),
                     obscureText: true,
                   ),
                   TextField(
                     controller: _registerConfirmController,
-                    decoration: const InputDecoration(labelText: 'Confirm Password *'),
+                    decoration: InputDecoration(labelText: '${localizations?.confirmPassword ?? 'Confirm Password'} *'),
                     obscureText: true,
                   ),
                   DropdownButtonFormField<String>(
                     value: _selectedGrade,
-                    decoration: const InputDecoration(labelText: 'Grade *'),
+                    decoration: InputDecoration(labelText: '${localizations?.grade ?? 'Grade'} *'),
                     items: gradeOptions.map((grade) => DropdownMenuItem(
                       value: grade,
                       child: Text(grade),
@@ -135,7 +138,7 @@ class _LoginPageState extends State<LoginPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
+                  child: Text(localizations?.cancel ?? 'Cancel'),
                 ),
                 TextButton(
                   onPressed: () {
@@ -144,16 +147,16 @@ class _LoginPageState extends State<LoginPage> {
                     final regConfirm = _registerConfirmController.text;
                     final regGrade = _selectedGrade;
                     if (regName.isEmpty || regPassword.isEmpty || regConfirm.isEmpty || regGrade == null || regGrade.isEmpty) {
-                      setState(() { dialogError = 'All fields are required.'; });
+                      setState(() { dialogError = localizations?.allFieldsRequired ?? 'All fields are required.'; });
                       return;
                     }
                     if (regPassword != regConfirm) {
-                      setState(() { dialogError = 'Passwords do not match.'; });
+                      setState(() { dialogError = localizations?.passwordsDoNotMatch ?? 'Passwords do not match.'; });
                       return;
                     }
                     Navigator.of(context).pop(true);
                   },
-                  child: const Text('Register'),
+                  child: Text(localizations?.register ?? 'Register'),
                 ),
               ],
             );
@@ -208,7 +211,7 @@ class _LoginPageState extends State<LoginPage> {
         _dialogNameFocus.dispose();
         // Re-show the dialog with the error and preserve form data
         _handleRegister(
-          initialDialogError: 'Username already exists. Please choose a different username.',
+          initialDialogError: localizations?.usernameAlreadyExists ?? 'Username already exists. Please choose a different username.',
           previousName: regName,
           previousPassword: regPassword,
           previousConfirmPassword: regConfirm,
@@ -216,7 +219,7 @@ class _LoginPageState extends State<LoginPage> {
         );
       } else {
         setState(() { 
-          _error = 'Registration failed: ' + e.toString();
+          _error = (localizations?.registrationFailed.replaceAll('{error}', e.toString()) ?? 'Registration failed: ${e.toString()}');
           _loading = false;
         });
         _dialogNameFocus.dispose();
@@ -228,8 +231,9 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      appBar: AppBar(title: Text(localizations?.login ?? 'Login')),
       body: Center(
         child: Card(
           margin: const EdgeInsets.all(24),
@@ -241,7 +245,7 @@ class _LoginPageState extends State<LoginPage> {
                 TextField(
                   controller: _nameController,
                   focusNode: _nameFocus,
-                  decoration: const InputDecoration(labelText: 'User Name'),
+                  decoration: InputDecoration(labelText: localizations?.userName ?? 'User Name'),
                   textCapitalization: TextCapitalization.characters,
                   onChanged: (value) {
                     final cursorPos = _nameController.selection.start;
@@ -253,7 +257,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 TextField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(labelText: 'Password'),
+                  decoration: InputDecoration(labelText: localizations?.password ?? 'Password'),
                   obscureText: true,
                 ),
                 if (_error.isNotEmpty)
@@ -270,15 +274,15 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       ElevatedButton(
                         onPressed: _handleLogin,
-                        child: const Text('Login'),
+                        child: Text(localizations?.login ?? 'Login'),
                       ),
                       ElevatedButton(
                         onPressed: _handleGuestLogin,
-                        child: const Text('Login as Guest'),
+                        child: Text(localizations?.loginAsGuest ?? 'Login as Guest'),
                       ),
                       ElevatedButton(
                         onPressed: _handleRegister,
-                        child: const Text('Register'),
+                        child: Text(localizations?.register ?? 'Register'),
                       ),
                     ],
                   ),

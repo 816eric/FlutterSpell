@@ -133,6 +133,21 @@ class AppLocalizations {
   String get shareStudyNoPoints => translate('shareStudyNoPoints');
   String get shareYourScore => translate('shareYourScore');
   String get shareYourAchievement => translate('shareYourAchievement');
+  
+  // Login page
+  String get userName => translate('userName');
+  String get password => translate('password');
+  String get loginAsGuest => translate('loginAsGuest');
+  String get register => translate('register');
+  String get pleaseEnterBothFields => translate('pleaseEnterBothFields');
+  String get incorrectCredentials => translate('incorrectCredentials');
+  String get loginFailed => translate('loginFailed');
+  String get confirmPassword => translate('confirmPassword');
+  String get grade => translate('grade');
+  String get allFieldsRequired => translate('allFieldsRequired');
+  String get passwordsDoNotMatch => translate('passwordsDoNotMatch');
+  String get registrationFailed => translate('registrationFailed');
+  String get usernameAlreadyExists => translate('usernameAlreadyExists');
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

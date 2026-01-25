@@ -121,5 +121,18 @@
   "shareQuizScoreWithPoints": "🎯 Scored {score}/{total} ({percentage}%) and earned {points} point(s)! 🎉\n\n🤖 AI Spell makes learning FUN & EASY! No more boring flashcards!\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/",
   "shareQuizScoreNoPoints": "🎯 Scored {score}/{total} ({percentage}%) on AI Spell quiz! 🎉\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/",
   "shareStudyWithPoints": "🎯 Just studied {count} word(s) and earned {points} point(s)! 🚀\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/",
-  "shareStudyNoPoints": "🎯 Just studied {count} word(s) on AI Spell! 🚀\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/"
+  "shareStudyNoPoints": "🎯 Just studied {count} word(s) on AI Spell! 🚀\n\n✨ Snap a photo → AI captures words instantly\n🎯 Personalized quizzes & smart study mode\n📈 Track progress & earn rewards\n🆓 100% FREE to use!\n\nPerfect for students, parents & teachers! 🎓\n\n👉 Try now: https://aispell.pages.dev/",
+  "userName": "User Name",
+  "password": "Password",
+  "loginAsGuest": "Login as Guest",
+  "register": "Register",
+  "pleaseEnterBothFields": "Please enter both user name and password.",
+  "incorrectCredentials": "Incorrect user name or password.",
+  "loginFailed": "Login failed.",
+  "confirmPassword": "Confirm Password",
+  "grade": "Grade",
+  "allFieldsRequired": "All fields are required.",
+  "passwordsDoNotMatch": "Passwords do not match.",
+  "registrationFailed": "Registration failed: {error}",
+  "usernameAlreadyExists": "Username already exists. Please choose a different username."
 }
