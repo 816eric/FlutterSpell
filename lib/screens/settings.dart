@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/spell_api_service.dart';
 import '../services/language_service.dart';
 import '../l10n/app_localizations.dart';
@@ -387,7 +388,108 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 24),
             ],
             // Voice Selection Section
-            if (availableVoices.isNotEmpty) ...[
+            if (kIsWeb) ...[
+              // For web: Show Google Cloud TTS info
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.cloud, color: Colors.blue[700], size: 28),
+                          const SizedBox(width: 12),
+                          Text(
+                            selectedLanguageCode == 'zh' ? "文字转语音" : "Text-to-Speech",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green[700], size: 20),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Google Cloud Text-to-Speech',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 28),
+                        child: Text(
+                          selectedLanguageCode == 'zh' 
+                            ? '使用高品质AI语音，自动识别语言。英文和中文语音针对最佳发音质量进行了优化。'
+                            : 'Using high-quality AI voices with automatic language detection. English and Chinese voices are optimized for the best pronunciation quality.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 28),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.volume_up, size: 16, color: Colors.grey[600]),
+                                const SizedBox(width: 6),
+                                Text(
+                                  selectedLanguageCode == 'zh' ? '高品质语音输出' : 'High-quality voice output',
+                                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.language, size: 16, color: Colors.grey[600]),
+                                const SizedBox(width: 6),
+                                Text(
+                                  selectedLanguageCode == 'zh' ? '自动语言检测' : 'Automatic language detection',
+                                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.speed, size: 16, color: Colors.grey[600]),
+                                const SizedBox(width: 6),
+                                Text(
+                                  selectedLanguageCode == 'zh' ? '快速可靠的播放' : 'Fast and reliable playback',
+                                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else if (availableVoices.isNotEmpty) ...[
+              // For native apps: Show voice selection dropdown
               Text(localizations?.chineseVoiceSelection ?? "Chinese Voice Selection",
                   style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -411,8 +513,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   await prefs.setString('selectedVoice', voice?['name'] ?? '');
                 },
               ),
-              const SizedBox(height: 24),
             ],
+            const SizedBox(height: 24),
             // AI Configuration Button
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8),

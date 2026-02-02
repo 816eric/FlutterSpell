@@ -2,14 +2,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
+import '../config/api_config.dart';
 
 class SpellApiService {
  
   // --- All static methods must be inside this class body ---
-  
-  //static final String baseUrl = "https://spellbackend.onrender.com/";
-  //static final String baseUrl = "http://127.0.0.1:8000/";
-  static final String baseUrl = "https://spellbackend.fly.dev/";
+  // baseUrl is now imported from ApiConfig - change it in lib/config/api_config.dart
+  static final String baseUrl = ApiConfig.baseUrl;
 
   //create the static methond below this line
 

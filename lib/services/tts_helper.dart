@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'tts_web.dart' if (dart.library.io) 'tts_stub.dart';
 
 class TtsHelper {
   static Future<void> playWord({
@@ -11,6 +13,15 @@ class TtsHelper {
     List<Map<String, String>>? availableVoices,
     int repeatCount = 1,
   }) async {
+    // For web platform, use Google Cloud TTS via backend
+    if (kIsWeb) {
+      print('=== TTS: Web platform detected, using Google Cloud TTS ===');
+      await playWordWeb(word);
+      return;
+    }
+    
+    // For native platforms (Android/iOS), use flutter_tts
+    print('=== TTS: Native platform, using flutter_tts ===');
     await tts.stop();
     await Future.delayed(const Duration(milliseconds: 150));
     // Helper to detect Chinese
