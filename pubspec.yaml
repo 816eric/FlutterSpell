@@ -79,6 +79,8 @@ flutter:
   assets:
     - lib/l10n/app_en.json
     - lib/l10n/app_zh.json
+    - assets/sounds/
+    - assets/animations/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
