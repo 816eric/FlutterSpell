@@ -629,6 +629,18 @@ class SpellApiService {
     }
   }
 
+  // ===== TTS Health Check =====
+  static Future<bool> testGoogleCloudTTS() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${SpellApiService.baseUrl}api/tts/health'),
+      ).timeout(const Duration(seconds: 3));
+      return response.statusCode == 200;
+    } catch (e) {
+      print('TTS health check failed: $e');
+      return false;
+    }
+  }
 
 
 }

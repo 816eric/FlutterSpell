@@ -6,6 +6,7 @@ import '../services/spell_api_service.dart';
 import '../services/language_service.dart';
 import '../l10n/app_localizations.dart';
 import 'ai_config_page.dart';
+import '../services/tts_web.dart' if (dart.library.io) '../services/tts_web_stub.dart';
 
 class SettingsPage extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
@@ -30,6 +31,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Map<String, String>? selectedVoice;
   String selectedLanguageCode = 'en';
   static const String loggedInUserKey = 'loggedInUser';
+  
+  // Browser voice selection (web only)
+  List<Map<String, String>> browserVoices = [];
+  String? selectedBrowserVoice;
+  bool isGoogleCloudTTSAvailable = false;
 
   @override
   void initState() {
@@ -42,6 +48,11 @@ class _SettingsPageState extends State<SettingsPage> {
     await _loadVoices();
     await _loadUserSettings();
     await _loadLanguage();
+    if (kIsWeb) {
+      await _checkGoogleCloudTTS();
+      // Always load browser voices on web
+      await _loadBrowserVoices();
+    }
   }
 
   Future<void> _loadLanguage() async {
@@ -187,6 +198,51 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     } catch (e) {
       // ignore errors
+    }
+  }
+
+  Future<void> _loadBrowserVoices() async {
+    if (!kIsWeb) return;
+    
+    try {
+      // Wait a bit for voices to load in the browser
+      await Future.delayed(const Duration(milliseconds: 500));
+      var voices = getBrowserVoices();
+      
+      // If no voices yet, try again after a longer delay
+      if (voices.isEmpty) {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        voices = getBrowserVoices();
+      }
+      
+      final prefs = await SharedPreferences.getInstance();
+      final savedVoiceName = prefs.getString('selectedBrowserVoice');
+      
+      setState(() {
+        browserVoices = voices;
+        if (savedVoiceName != null && savedVoiceName.isNotEmpty) {
+          selectedBrowserVoice = savedVoiceName;
+        }
+      });
+    } catch (e) {
+      print('Error loading browser voices: $e');
+    }
+  }
+
+  Future<void> _checkGoogleCloudTTS() async {
+    if (!kIsWeb) return;
+    
+    try {
+      // Try a simple test request to see if Google Cloud TTS is available
+      final response = await SpellApiService.testGoogleCloudTTS();
+      setState(() {
+        isGoogleCloudTTSAvailable = response;
+      });
+    } catch (e) {
+      print('Google Cloud TTS not available: $e');
+      setState(() {
+        isGoogleCloudTTSAvailable = false;
+      });
     }
   }
 
@@ -387,9 +443,9 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(height: 24),
             ],
-            // Voice Selection Section
-            if (kIsWeb) ...[
-              // For web: Show Google Cloud TTS info
+            // Voice Selection Section - Always show
+            if (kIsWeb && isGoogleCloudTTSAvailable) ...[
+              // For web with Google Cloud TTS: Show Google Cloud TTS info
               Card(
                 elevation: 2,
                 child: Padding(
@@ -443,47 +499,98 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            // Browser voice selection on web (always show)
+            if (kIsWeb) ...[
+              // For web: Show device/system voice selection
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.record_voice_over, color: Colors.orange[700], size: 28),
+                          const SizedBox(width: 12),
+                          Text(
+                            selectedLanguageCode == 'zh' ? "设备语音" : "Device Voice",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.orange,
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 8),
                       Padding(
-                        padding: const EdgeInsets.only(left: 28),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.volume_up, size: 16, color: Colors.grey[600]),
-                                const SizedBox(width: 6),
-                                Text(
-                                  selectedLanguageCode == 'zh' ? '高品质语音输出' : 'High-quality voice output',
-                                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(Icons.language, size: 16, color: Colors.grey[600]),
-                                const SizedBox(width: 6),
-                                Text(
-                                  selectedLanguageCode == 'zh' ? '自动语言检测' : 'Automatic language detection',
-                                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(Icons.speed, size: 16, color: Colors.grey[600]),
-                                const SizedBox(width: 6),
-                                Text(
-                                  selectedLanguageCode == 'zh' ? '快速可靠的播放' : 'Fast and reliable playback',
-                                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                                ),
-                              ],
-                            ),
-                          ],
+                        padding: const EdgeInsets.only(left: 0),
+                        child: Text(
+                          selectedLanguageCode == 'zh' 
+                            ? '使用您电脑上安装的系统语音。当Google云服务不可用时作为备选方案。'
+                            : 'Uses the text-to-speech voices installed on your computer. Fallback option when Google Cloud TTS is not available.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                            height: 1.4,
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      if (browserVoices.isEmpty) ...[
+                        Row(
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(width: 16),
+                            Text(selectedLanguageCode == 'zh' ? '正在加载语音...' : 'Loading voices...'),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () async {
+                            await _loadBrowserVoices();
+                          },
+                          child: Text(selectedLanguageCode == 'zh' ? '重新加载' : 'Reload'),
+                        ),
+                      ] else ...[
+                        Text(
+                          selectedLanguageCode == 'zh' ? '选择设备语音' : 'Select Device Voice',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButton<String>(
+                          value: selectedBrowserVoice,
+                          isExpanded: true,
+                          hint: Text(selectedLanguageCode == 'zh' ? '选择语音' : 'Select Voice'),
+                          items: browserVoices.map((voice) {
+                            final name = voice['name'] ?? 'Unknown';
+                            final lang = voice['lang'] ?? '';
+                            return DropdownMenuItem(
+                              value: name,
+                              child: Text('$name ($lang)'),
+                            );
+                          }).toList(),
+                          onChanged: (voiceName) async {
+                            setState(() {
+                              selectedBrowserVoice = voiceName;
+                            });
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setString('selectedBrowserVoice', voiceName ?? '');
+                          },
+                        ),
+                      ],
                     ],
                   ),
                 ),

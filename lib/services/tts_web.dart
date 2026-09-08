@@ -1,6 +1,7 @@
 import 'dart:js_util' as js_util;
 import 'dart:html' as html;
 import '../config/api_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Keep track of currently playing audio to allow stopping
 html.AudioElement? _currentAudio;
@@ -105,17 +106,33 @@ Future<void> _playWithBrowserTTS(String word) async {
   final voicesList = List.from(voices);
   final isChinese = RegExp(r'[\u4e00-\u9fff]').hasMatch(word);
   
+  // Try to get saved voice preference
+  final prefs = await SharedPreferences.getInstance();
+  final savedVoiceName = prefs.getString('selectedBrowserVoice');
+  
   var selectedVoice;
-  if (isChinese) {
+  
+  // First, try to use saved voice if available
+  if (savedVoiceName != null && savedVoiceName.isNotEmpty) {
     selectedVoice = voicesList.firstWhere(
-      (v) => js_util.getProperty(v, 'lang').toString().startsWith('zh'),
-      orElse: () => voicesList.isNotEmpty ? voicesList[0] : null,
+      (v) => js_util.getProperty(v, 'name').toString() == savedVoiceName,
+      orElse: () => null,
     );
-  } else {
-    selectedVoice = voicesList.firstWhere(
-      (v) => js_util.getProperty(v, 'lang').toString().startsWith('en'),
-      orElse: () => voicesList.isNotEmpty ? voicesList[0] : null,
-    );
+  }
+  
+  // If no saved voice or saved voice not found, auto-select by language
+  if (selectedVoice == null) {
+    if (isChinese) {
+      selectedVoice = voicesList.firstWhere(
+        (v) => js_util.getProperty(v, 'lang').toString().startsWith('zh'),
+        orElse: () => voicesList.isNotEmpty ? voicesList[0] : null,
+      );
+    } else {
+      selectedVoice = voicesList.firstWhere(
+        (v) => js_util.getProperty(v, 'lang').toString().startsWith('en'),
+        orElse: () => voicesList.isNotEmpty ? voicesList[0] : null,
+      );
+    }
   }
   
   final utter = js_util.callConstructor(
@@ -129,4 +146,24 @@ Future<void> _playWithBrowserTTS(String word) async {
   }
   
   js_util.callMethod(synth, 'speak', [utter]);
+}
+
+/// Get available browser voices for selection in settings
+List<Map<String, String>> getBrowserVoices() {
+  try {
+    final synth = js_util.getProperty(js_util.globalThis, 'speechSynthesis');
+    final voices = js_util.callMethod(synth, 'getVoices', []);
+    final voicesList = List.from(voices);
+    
+    return voicesList.map((v) {
+      return {
+        'name': js_util.getProperty(v, 'name').toString(),
+        'lang': js_util.getProperty(v, 'lang').toString(),
+        'localService': js_util.getProperty(v, 'localService').toString(),
+      };
+    }).toList();
+  } catch (e) {
+    print('Error getting browser voices: $e');
+    return [];
+  }
 }

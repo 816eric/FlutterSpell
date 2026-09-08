@@ -32,6 +32,9 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Cloudflare Wrangler
+.wrangler/
+
 # Symbolication related
 app.*.symbols
 

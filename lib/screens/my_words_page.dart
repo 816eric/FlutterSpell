@@ -180,7 +180,7 @@ class _AddMyWordsPageState extends State<AddMyWordsPage> {
                   Navigator.of(context).pop();
                   setState(() {
                     _wordController.text = extractedText;
-                    _tagController.text = "SJIJ::Px::CN/EN::Termx";
+                    _tagController.text = "SMSP::Px::CN/EN::Termx";
                   });
                 },
                 child: Text(localizations?.ok ?? "OK"),
