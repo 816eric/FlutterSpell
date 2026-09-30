@@ -5,6 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'tts_web.dart' if (dart.library.io) 'tts_stub.dart';
 
 class TtsHelper {
+  // Shown at most once per app session - Google TTS failing is a backend-
+  // wide condition (see playWordWeb), not a per-word thing, so repeating
+  // the warning on every single word would just be noise.
+  static bool _fallbackNoticeShown = false;
+
   static Future<void> playWord({
     required BuildContext context,
     required FlutterTts tts,
@@ -16,7 +21,8 @@ class TtsHelper {
     // For web platform, use Google Cloud TTS via backend
     if (kIsWeb) {
       print('=== TTS: Web platform detected, using Google Cloud TTS ===');
-      await playWordWeb(word);
+      final usedFallback = await playWordWeb(word);
+      if (usedFallback && context.mounted) _showFallbackNotice(context);
       return;
     }
     
@@ -125,5 +131,18 @@ class TtsHelper {
         await Future.delayed(const Duration(milliseconds: 100));
       }
     }
+  }
+
+  static void _showFallbackNotice(BuildContext context) {
+    if (_fallbackNoticeShown || !context.mounted) return;
+    _fallbackNoticeShown = true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Using built-in voice",
+        ),
+        duration: Duration(seconds: 5),
+      ),
+    );
   }
 }

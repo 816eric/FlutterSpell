@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:js_util' as js_util;
 import 'dart:html' as html;
 import '../config/api_config.dart';
@@ -14,7 +15,12 @@ bool _isMobileDevice() {
          userAgent.contains('android');
 }
 
-Future<void> playWordWeb(String word) async {
+/// Speaks [word] on web. Returns `true` when it had to fall back to the
+/// browser's built-in voice because Google Cloud TTS was attempted and
+/// failed (as opposed to desktop, which always uses the browser voice by
+/// design and isn't a failure) - callers use this to warn the user once
+/// that voice quality may be degraded, instead of failing silently.
+Future<bool> playWordWeb(String word) async {
   // Stop any currently playing audio (Google Cloud TTS)
   if (_currentAudio != null) {
     _currentAudio!.pause();
@@ -35,16 +41,19 @@ Future<void> playWordWeb(String word) async {
   if (_isMobileDevice()) {
     print('=== TTS: Mobile device detected, using Google Cloud TTS ===');
     final googleTtsSuccess = await _tryGoogleTTS(word);
-    
+
     if (!googleTtsSuccess) {
       // Fallback to browser TTS
       print('=== TTS: Google TTS failed, falling back to browser TTS ===');
       await _playWithBrowserTTS(word);
     }
+    return !googleTtsSuccess;
   } else {
-    // Desktop/PC: Use browser TTS directly
+    // Desktop/PC: Use browser TTS directly - this is the normal path here,
+    // not a failure, so it never triggers the fallback notice.
     print('=== TTS: Desktop device, using browser TTS ===');
     await _playWithBrowserTTS(word);
+    return false;
   }
 }
 
@@ -71,21 +80,39 @@ Future<bool> _tryGoogleTTS(String word) async {
     
     // Store reference to current audio for stopping
     _currentAudio = audioElement;
-    
-    // Wait for the audio to be ready
-    await audioElement.onCanPlay.first;
-    
+
+    // Wait for the audio to become playable - but race it against the
+    // element's error event and a timeout, otherwise a backend failure
+    // (e.g. Google Cloud TTS erroring, or billing being disabled - see
+    // TTS error logs) never fires 'canplay' and this await hangs forever,
+    // silently skipping the browser-TTS fallback below instead of using it.
+    final ready = Completer<bool>();
+    audioElement.onCanPlay.first.then((_) {
+      if (!ready.isCompleted) ready.complete(true);
+    });
+    audioElement.onError.first.then((_) {
+      if (!ready.isCompleted) ready.complete(false);
+    });
+    final canPlay = await ready.future.timeout(
+      const Duration(seconds: 6),
+      onTimeout: () => false,
+    );
+    if (!canPlay) {
+      if (_currentAudio == audioElement) _currentAudio = null;
+      return false;
+    }
+
     // Play the audio
     await audioElement.play();
-    
+
     // Wait for playback to complete
     await audioElement.onEnded.first;
-    
+
     // Clear reference when done
     if (_currentAudio == audioElement) {
       _currentAudio = null;
     }
-    
+
     return true;
   } catch (e) {
     // Google TTS failed
