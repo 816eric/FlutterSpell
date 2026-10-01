@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'authed_http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
 import '../config/api_config.dart';
@@ -157,6 +157,12 @@ class SpellApiService {
       print('DEBUG createUserProfile error: statusCode=${response.statusCode}, body=${response.body}');
       throw Exception('Failed to create user profile: ${response.body}');
     }
+    try {
+      final body = jsonDecode(response.body);
+      if (body['token'] is String && data['name'] is String) {
+        await http.AuthSession.save(data['name'] as String, body['token'] as String);
+      }
+    } catch (_) {}
   }
   // Static method to update user profile
   static Future<void> updateUserProfile(String userName, Map<String, dynamic> data) async {
@@ -198,18 +204,19 @@ class SpellApiService {
 
   // Verify user password with backend (matches FastAPI route)
   static Future<bool> verifyUserPassword(String userName, String password) async {
-    print('DEBUG verifyUserPassword: userName=$userName, password=$password');
     final response = await http.post(
       Uri.parse('${SpellApiService.baseUrl}users/$userName/verify-password'),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'password=${Uri.encodeComponent(password)}',
     );
     print('DEBUG verifyUserPassword response.statusCode: ${response.statusCode}');
-    print('DEBUG verifyUserPassword response.body: ${response.body}');
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      print('DEBUG verifyUserPassword decoded data: $data');
-      return data['verified'] == true;
+      if (data['verified'] == true && data['token'] is String) {
+        await http.AuthSession.save(userName, data['token'] as String);
+        return true;
+      }
+      return false;
     } else {
       print('DEBUG verifyUserPassword failed with status ${response.statusCode}');
       return false;
@@ -302,6 +309,7 @@ class SpellApiService {
   static Future<List<String>> extractWordsFromImageWeb(XFile pickedFile) async {
     final uri = Uri.parse('${SpellApiService.baseUrl}ai/extract-words');
     var request = http.MultipartRequest('POST', uri);
+    request.headers.addAll(http.AuthSession.headersFor(uri, null));
     // Guess content type from file extension
     String? contentType;
     final lowerName = pickedFile.name.toLowerCase();

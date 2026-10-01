@@ -13,6 +13,7 @@ import 'screens/reward_page.dart';
 import 'screens/history_page.dart';
 import 'screens/login_page.dart';
 import 'l10n/app_localizations.dart';
+import 'services/authed_http.dart' show AuthSession;
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<String?> _getLoggedInUser() async {
@@ -20,7 +21,9 @@ Future<String?> _getLoggedInUser() async {
   return prefs.getString('loggedInUser');
 }
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AuthSession.load();
   runApp(SpellApp());
 }
 
