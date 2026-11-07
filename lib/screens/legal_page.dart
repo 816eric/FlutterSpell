@@ -24,24 +24,10 @@ class LegalPage extends StatelessWidget {
       body: ListView(
         children: [
           ListTile(
-            leading: const Icon(Icons.privacy_tip, color: Colors.blue),
-            title: const Text('Privacy Policy'),
-            trailing: const Icon(Icons.open_in_new, size: 18, color: Colors.blue),
-            onTap: () => _launchUrl(context, 'https://aispell.pages.dev/privacy-policy.html'),
-          ),
-          const Divider(height: 1),
-          ListTile(
             leading: const Icon(Icons.description, color: Colors.green),
             title: const Text('Terms of Service'),
             trailing: const Icon(Icons.open_in_new, size: 18, color: Colors.green),
             onTap: () => _launchUrl(context, 'https://aispell.pages.dev/terms-of-service.html'),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text('Data Deletion'),
-            trailing: const Icon(Icons.open_in_new, size: 18, color: Colors.red),
-            onTap: () => _launchUrl(context, 'https://aispell.pages.dev/data-deletion.html'),
           ),
         ],
       ),
